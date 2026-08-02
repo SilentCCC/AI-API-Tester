@@ -241,7 +241,7 @@ function renderSites() {
   }
 
   const fragment = document.createDocumentFragment();
-  for (const site of apiSites) {
+  for (const [siteIndex, site] of apiSites.entries()) {
     const card = document.createElement('article');
     card.className = 'site-card';
 
@@ -272,6 +272,25 @@ function renderSites() {
 
     const actions = document.createElement('div');
     actions.className = 'site-card-actions';
+    const orderActions = document.createElement('div');
+    orderActions.className = 'site-order-actions';
+    const moveLeftButton = document.createElement('button');
+    moveLeftButton.className = 'site-order-button';
+    moveLeftButton.type = 'button';
+    moveLeftButton.textContent = '←';
+    moveLeftButton.title = '向前移动一位';
+    moveLeftButton.setAttribute('aria-label', `${site.name} 向前移动一位`);
+    moveLeftButton.disabled = siteIndex === 0 || multiSiteRunning || siteModelsLoading;
+    moveLeftButton.addEventListener('click', () => moveSiteCard(site.id, -1));
+    const moveRightButton = document.createElement('button');
+    moveRightButton.className = 'site-order-button';
+    moveRightButton.type = 'button';
+    moveRightButton.textContent = '→';
+    moveRightButton.title = '向后移动一位';
+    moveRightButton.setAttribute('aria-label', `${site.name} 向后移动一位`);
+    moveRightButton.disabled = siteIndex === apiSites.length - 1 || multiSiteRunning || siteModelsLoading;
+    moveRightButton.addEventListener('click', () => moveSiteCard(site.id, 1));
+    orderActions.append(moveLeftButton, moveRightButton);
     const editButton = document.createElement('button');
     editButton.className = 'button button-secondary button-small';
     editButton.type = 'button';
@@ -284,7 +303,7 @@ function renderSites() {
     deleteButton.textContent = '删除';
     deleteButton.disabled = multiSiteRunning || siteModelsLoading;
     deleteButton.addEventListener('click', () => deleteSite(site.id));
-    actions.append(editButton, deleteButton);
+    actions.append(orderActions, editButton, deleteButton);
 
     card.append(selectLabel, endpoint, key, actions);
     fragment.append(card);
@@ -292,6 +311,13 @@ function renderSites() {
 
   multiSiteElements.siteList.append(fragment);
   updateSiteControls();
+}
+
+function moveSiteCard(siteId, offset) {
+  apiSites = SiteManager.moveSite(apiSites, siteId, offset);
+  SiteManager.saveSites(apiSites);
+  renderSites();
+  setSiteMessage('站点顺序已保存。', 'success');
 }
 
 function editSite(site) {

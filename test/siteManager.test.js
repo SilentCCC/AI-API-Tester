@@ -8,6 +8,7 @@ const {
   findDuplicateEndpoints,
   loadSites,
   mergeImportedSites,
+  moveSite,
   normalizeEndpoint,
   parseImportConfig,
   saveSites
@@ -103,4 +104,17 @@ test('重复端点可以检测并在确认后覆盖', () => {
 
   assert.deepEqual(findDuplicateEndpoints(existing, imported), ['https://api.example.com/v1']);
   assert.deepEqual(mergeImportedSites(existing, imported, true), imported);
+});
+
+test('站点可以使用左右按钮向前或向后移动一位', () => {
+  const sites = [
+    { id: 'a', name: 'A' },
+    { id: 'b', name: 'B' },
+    { id: 'c', name: 'C' }
+  ];
+
+  assert.deepEqual(moveSite(sites, 'b', -1).map((site) => site.id), ['b', 'a', 'c']);
+  assert.deepEqual(moveSite(sites, 'b', 1).map((site) => site.id), ['a', 'c', 'b']);
+  assert.deepEqual(moveSite(sites, 'a', -1), sites);
+  assert.deepEqual(moveSite(sites, 'c', 1), sites);
 });

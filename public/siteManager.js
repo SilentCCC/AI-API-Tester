@@ -82,6 +82,16 @@
     return [...retainedSites, ...importedSites];
   }
 
+  function moveSite(sites, siteId, offset) {
+    const currentIndex = sites.findIndex((site) => site.id === siteId);
+    const targetIndex = currentIndex + offset;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= sites.length) return [...sites];
+
+    const reordered = [...sites];
+    [reordered[currentIndex], reordered[targetIndex]] = [reordered[targetIndex], reordered[currentIndex]];
+    return reordered;
+  }
+
   function buildSiteModelTasks(sites, models) {
     return sites.flatMap((site) => models.map((model) => ({
       id: `${site.id}::${model}`,
@@ -98,6 +108,7 @@
     findDuplicateEndpoints,
     loadSites,
     mergeImportedSites,
+    moveSite,
     normalizeEndpoint,
     parseImportConfig,
     saveSites

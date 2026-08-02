@@ -128,7 +128,11 @@ input:disabled, select:disabled, button:disabled { cursor: not-allowed; opacity:
 .site-select input { flex: 0 0 auto; width: 17px; min-height: 17px; margin: 0; accent-color: var(--accent); }
 .site-select strong { min-width: 0; overflow-wrap: anywhere; }
 .site-endpoint, .site-key { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.site-card-actions { display: flex; gap: 8px; margin-top: 4px; }
+.site-card-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.site-order-actions { display: flex; gap: 5px; margin-right: auto; }
+.site-order-button { display: grid; width: 36px; min-height: 36px; padding: 0; place-items: center; border: 1px solid var(--border); border-radius: 9px; outline: none; color: var(--text); background: #151c27; font-size: 17px; font-weight: 750; cursor: pointer; }
+.site-order-button:hover, .site-order-button:focus-visible { border-color: rgba(105, 228, 181, 0.55); color: var(--accent); background: var(--accent-soft); }
+.site-order-button:disabled { cursor: not-allowed; opacity: 0.35; }
 
 .config-dialog-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgba(4, 7, 12, 0.74); backdrop-filter: blur(5px); }
 .config-dialog-backdrop[hidden] { display: none; }
