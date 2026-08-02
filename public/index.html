@@ -42,14 +42,6 @@
             <span>API Key</span>
             <input id="site-api-key" type="password" placeholder="sk-xxxxxxxx" autocomplete="off" required>
           </label>
-          <label class="field site-note-field">
-            <span>备注（可选）</span>
-            <input id="site-note" type="text" placeholder="例如：GPT 测试接口" maxlength="300">
-          </label>
-          <label class="site-enabled-field">
-            <input id="site-enabled" type="checkbox" checked>
-            <span>启用此站点</span>
-          </label>
           <div class="site-form-actions">
             <button id="save-site" class="button button-primary" type="submit">保存站点</button>
             <button id="cancel-site-edit" class="button button-secondary" type="button" hidden>取消编辑</button>
@@ -63,8 +55,6 @@
             <p>已选择 <strong id="selected-site-count">0</strong> 个站点</p>
           </div>
           <div class="selection-actions">
-            <button id="import-config" class="button button-secondary button-small" type="button">导入配置</button>
-            <button id="export-config" class="button button-secondary button-small" type="button">导出配置</button>
             <button id="select-all-sites" class="button button-secondary button-small" type="button" disabled>全选站点</button>
             <button id="clear-sites" class="button button-secondary button-small" type="button" disabled>清空选择</button>
           </div>
@@ -158,22 +148,6 @@
         </div>
       </section>
     </main>
-
-    <input id="config-import-file" type="file" accept="application/json,.json" hidden>
-    <div id="config-dialog" class="config-dialog-backdrop" hidden>
-      <section class="config-dialog" role="dialog" aria-modal="true" aria-labelledby="config-dialog-title" aria-describedby="config-dialog-message">
-        <div class="config-dialog-icon" aria-hidden="true">!</div>
-        <div class="config-dialog-copy">
-          <h2 id="config-dialog-title">配置提示</h2>
-          <p id="config-dialog-message"></p>
-          <div id="config-dialog-details" class="config-dialog-details" hidden></div>
-        </div>
-        <div class="config-dialog-actions">
-          <button id="config-dialog-cancel" class="button button-secondary" type="button">取消</button>
-          <button id="config-dialog-confirm" class="button button-primary" type="button">确认</button>
-        </div>
-      </section>
-    </div>
 
     <script src="/batchRunner.js"></script>
     <script src="/siteManager.js"></script>
