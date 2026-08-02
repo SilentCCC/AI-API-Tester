@@ -35,10 +35,7 @@ const multiSiteElements = {
   multiSiteResultBadge: document.querySelector('#multi-site-result-badge'),
   multiSiteResultEmpty: document.querySelector('#multi-site-result-empty'),
   multiSiteResultContent: document.querySelector('#multi-site-result-content'),
-  multiSiteResultBody: document.querySelector('#multi-site-result-body'),
-  batchSuccessCount: document.querySelector('#batch-success-count'),
-  batchFailureCount: document.querySelector('#batch-failure-count'),
-  batchSuccessRate: document.querySelector('#batch-success-rate')
+  multiSiteResultBody: document.querySelector('#multi-site-result-body')
 };
 
 const MULTI_SITE_CONCURRENCY = 3;
@@ -470,11 +467,7 @@ function normalizeMultiSiteError(error, task) {
       description: '测试失败，返回信息不足以判断模型一致性。'
     },
     httpStatus: error.payload?.httpStatus || error.status,
-    ttft: error.payload?.ttft,
     responseTime: error.payload?.responseTime,
-    generationTime: error.payload?.generationTime,
-    usage: error.payload?.usage || null,
-    tokensPerSecond: error.payload?.tokensPerSecond,
     content: error.payload?.content || '',
     message: error.message
   };
@@ -489,10 +482,7 @@ function createMultiSiteResultRow(task) {
     returned: document.createElement('td'),
     consistency: document.createElement('td'),
     status: document.createElement('td'),
-    ttft: document.createElement('td'),
     time: document.createElement('td'),
-    tokens: document.createElement('td'),
-    speed: document.createElement('td'),
     http: document.createElement('td'),
     content: document.createElement('td'),
     error: document.createElement('td')
@@ -505,10 +495,7 @@ function createMultiSiteResultRow(task) {
   cells.returned.textContent = '—';
   cells.consistency.textContent = '等待测试';
   cells.status.textContent = '排队中';
-  cells.ttft.textContent = '—';
   cells.time.textContent = '—';
-  cells.tokens.textContent = '—';
-  cells.speed.textContent = '—';
   cells.http.textContent = '—';
   cells.content.textContent = '等待测试';
   cells.error.textContent = '—';
@@ -541,42 +528,6 @@ function renderResponseContent(cell, content) {
   output.textContent = value;
   details.append(summary, output);
   cell.replaceChildren(details);
-}
-
-function formatDuration(milliseconds) {
-  if (!Number.isFinite(milliseconds)) return '未知';
-  if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
-  return `${(milliseconds / 1000).toFixed(milliseconds < 10000 ? 2 : 1)} s`;
-}
-
-function renderTokenMetrics(cell, usage) {
-  if (!usage || ![usage.inputTokens, usage.outputTokens, usage.totalTokens].some(Number.isFinite)) {
-    cell.innerHTML = '<span class="metric-unavailable">未提供 Token 数据</span>';
-    return;
-  }
-
-  const metrics = document.createElement('span');
-  metrics.className = 'token-metrics';
-  const values = [
-    ['输入', usage.inputTokens],
-    ['输出', usage.outputTokens],
-    ['总计', usage.totalTokens]
-  ];
-  for (const [label, value] of values) {
-    const line = document.createElement('span');
-    const title = document.createElement('strong');
-    title.textContent = `${label}：`;
-    line.append(title, Number.isFinite(value) ? String(value) : '未知');
-    metrics.append(line);
-  }
-  cell.replaceChildren(metrics);
-}
-
-function updateBatchPerformanceSummary(successCount, failureCount, total) {
-  const successRate = total ? (successCount / total) * 100 : 0;
-  multiSiteElements.batchSuccessCount.textContent = `${successCount}/${total}`;
-  multiSiteElements.batchFailureCount.textContent = String(failureCount);
-  multiSiteElements.batchSuccessRate.textContent = `${successRate.toFixed(successRate % 1 ? 1 : 0)}%`;
 }
 
 function getHttpStatusTooltip() {
@@ -673,12 +624,7 @@ function renderMultiSiteResultRow(rowState, result) {
   rowState.cells.consistency.replaceChildren(consistencyElement);
   rowState.cells.status.textContent = result.success ? '✅ 可用' : '❌ 失败';
   renderHttpStatus(rowState.cells.http, result.httpStatus);
-  rowState.cells.ttft.textContent = formatDuration(result.ttft);
-  rowState.cells.time.textContent = formatDuration(result.responseTime);
-  renderTokenMetrics(rowState.cells.tokens, result.usage);
-  rowState.cells.speed.textContent = Number.isFinite(result.tokensPerSecond)
-    ? `${result.tokensPerSecond} tokens/s`
-    : '无法计算';
+  rowState.cells.time.textContent = Number.isFinite(result.responseTime) ? `${result.responseTime} ms` : '未知';
   renderResponseContent(rowState.cells.content, result.content);
   rowState.cells.error.textContent = result.success ? '无' : (result.message || '未知错误');
 }
@@ -707,9 +653,6 @@ async function startMultiSiteTest() {
   const rows = new Map(tasks.map((task) => [task.id, createMultiSiteResultRow(task)]));
   let started = 0;
   let completed = 0;
-  let successCount = 0;
-  let failureCount = 0;
-  updateBatchPerformanceSummary(0, 0, tasks.length);
   multiSiteElements.multiSiteProgress.textContent = `正在测试 0/${tasks.length}`;
 
   await BatchRunner.runWithConcurrency(tasks, async (task) => {
@@ -733,9 +676,6 @@ async function startMultiSiteTest() {
       }
       renderMultiSiteResultRow(rows.get(task.id), error ? normalizeMultiSiteError(error, task) : result);
       completed += 1;
-      if (!error && result.success) successCount += 1;
-      else failureCount += 1;
-      updateBatchPerformanceSummary(successCount, failureCount, tasks.length);
       multiSiteElements.multiSiteProgress.textContent = `正在测试 ${started}/${tasks.length}（已完成 ${completed}）`;
     }
   });

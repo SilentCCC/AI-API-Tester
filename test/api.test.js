@@ -14,7 +14,7 @@ function close(server) {
   });
 }
 
-test('模型列表去重，聊天测试发送 temperature 0 并返回性能指标', async () => {
+test('模型列表去重，聊天测试发送 temperature 0 并返回一致性结果', async () => {
   let receivedBody;
   const upstream = http.createServer((request, response) => {
     response.setHeader('Content-Type', 'application/json');
@@ -31,10 +31,10 @@ test('模型列表去重，聊天测试发送 temperature 0 并返回性能指�
       request.on('data', (chunk) => { body += chunk; });
       request.on('end', () => {
         receivedBody = JSON.parse(body);
-        response.write('{"model":"gpt-5.6-turbo","choices":[{"message":{"content":"Hello!"}}],"usage":');
-        setTimeout(() => {
-          response.end('{"prompt_tokens":7,"completion_tokens":5,"total_tokens":12}}');
-        }, 30);
+        response.end(JSON.stringify({
+          model: 'gpt-5.6-turbo',
+          choices: [{ message: { content: 'Hello!' } }]
+        }));
       });
       return;
     }
@@ -80,17 +80,6 @@ test('模型列表去重，聊天测试发送 temperature 0 并返回性能指�
     assert.equal(result.returnedModel, 'gpt-5.6-turbo');
     assert.equal(result.consistency.level, 'mapping');
     assert.equal(result.content, 'Hello!');
-    assert.ok(Number.isFinite(result.ttft));
-    assert.ok(Number.isFinite(result.responseTime));
-    assert.ok(result.responseTime >= result.ttft);
-    assert.deepEqual(result.usage, {
-      inputTokens: 7,
-      outputTokens: 5,
-      totalTokens: 12
-    });
-    assert.equal(result.generationTime, result.responseTime - result.ttft);
-    assert.ok(result.generationTime >= 20);
-    assert.ok(Number.isFinite(result.tokensPerSecond));
   } finally {
     await Promise.all([close(local), close(upstream)]);
   }
