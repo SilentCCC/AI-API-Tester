@@ -37,6 +37,7 @@ let selectedSiteModels = new Set();
 let multiSiteController = null;
 let multiSiteRunning = false;
 let siteModelsLoading = false;
+let httpTooltipHideTimer = null;
 
 async function checkLocalService() {
   try {
@@ -421,6 +422,89 @@ function renderResponseContent(cell, content) {
   cell.replaceChildren(details);
 }
 
+function getHttpStatusTooltip() {
+  let tooltip = document.querySelector('#http-status-tooltip');
+  if (tooltip) return tooltip;
+
+  tooltip = document.createElement('div');
+  tooltip.id = 'http-status-tooltip';
+  tooltip.className = 'http-status-tooltip';
+  tooltip.setAttribute('role', 'tooltip');
+  tooltip.hidden = true;
+  tooltip.addEventListener('mouseenter', () => clearTimeout(httpTooltipHideTimer));
+  tooltip.addEventListener('mouseleave', hideHttpStatusTooltip);
+  document.body.append(tooltip);
+  return tooltip;
+}
+
+function showHttpStatusTooltip(trigger, statusCode, info) {
+  clearTimeout(httpTooltipHideTimer);
+  const tooltip = getHttpStatusTooltip();
+  const title = document.createElement('strong');
+  title.textContent = `HTTP ${statusCode} ${info.label}`;
+  const description = document.createElement('span');
+  description.textContent = `说明：${info.description}`;
+  tooltip.replaceChildren(title, description);
+
+  if (info.suggestion) {
+    const suggestion = document.createElement('span');
+    suggestion.className = 'http-status-suggestion';
+    suggestion.textContent = `建议：${info.suggestion}`;
+    tooltip.append(suggestion);
+  }
+
+  tooltip.hidden = false;
+  tooltip.dataset.placement = 'top';
+  tooltip.classList.add('is-visible');
+
+  const triggerRect = trigger.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const viewportPadding = 12;
+  let left = triggerRect.left + (triggerRect.width - tooltipRect.width) / 2;
+  left = Math.max(viewportPadding, Math.min(left, window.innerWidth - tooltipRect.width - viewportPadding));
+  let top = triggerRect.top - tooltipRect.height - 10;
+
+  if (top < viewportPadding) {
+    top = triggerRect.bottom + 10;
+    tooltip.dataset.placement = 'bottom';
+  }
+
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+  tooltip.style.setProperty('--http-tooltip-arrow-left', `${triggerRect.left + triggerRect.width / 2 - left}px`);
+}
+
+function hideHttpStatusTooltip() {
+  clearTimeout(httpTooltipHideTimer);
+  httpTooltipHideTimer = setTimeout(() => {
+    const tooltip = document.querySelector('#http-status-tooltip');
+    if (!tooltip) return;
+    tooltip.classList.remove('is-visible');
+    setTimeout(() => {
+      if (!tooltip.classList.contains('is-visible')) tooltip.hidden = true;
+    }, 140);
+  }, 80);
+}
+
+function renderHttpStatus(cell, statusCode) {
+  const info = StatusCodes.getStatusCodeInfo(statusCode);
+  if (!info) {
+    cell.textContent = '未知';
+    return;
+  }
+
+  const trigger = document.createElement('button');
+  trigger.className = `http-status-trigger http-status-${info.level}`;
+  trigger.type = 'button';
+  trigger.textContent = `${info.icon} ${statusCode} ${info.label}`;
+  trigger.setAttribute('aria-label', `查看 HTTP ${statusCode} ${info.label} 的说明`);
+  trigger.addEventListener('mouseenter', () => showHttpStatusTooltip(trigger, statusCode, info));
+  trigger.addEventListener('mouseleave', hideHttpStatusTooltip);
+  trigger.addEventListener('focus', () => showHttpStatusTooltip(trigger, statusCode, info));
+  trigger.addEventListener('blur', hideHttpStatusTooltip);
+  cell.replaceChildren(trigger);
+}
+
 function renderMultiSiteResultRow(rowState, result) {
   const consistency = result.consistency;
   rowState.row.className = result.success ? 'row-success' : 'row-error';
@@ -431,7 +515,7 @@ function renderMultiSiteResultRow(rowState, result) {
   consistencyElement.title = consistency.description;
   rowState.cells.consistency.replaceChildren(consistencyElement);
   rowState.cells.status.textContent = result.success ? '✅ 可用' : '❌ 失败';
-  rowState.cells.http.textContent = result.httpStatus || '未知';
+  renderHttpStatus(rowState.cells.http, result.httpStatus);
   rowState.cells.time.textContent = Number.isFinite(result.responseTime) ? `${result.responseTime} ms` : '未知';
   renderResponseContent(rowState.cells.content, result.content);
   rowState.cells.error.textContent = result.success ? '无' : (result.message || '未知错误');

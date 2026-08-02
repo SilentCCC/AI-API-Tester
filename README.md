@@ -34,6 +34,8 @@ AI API Tester 是一个基于 Node.js、Express、HTML、CSS 和 JavaScript 的�
 
 统一结果表记录站点名称、Endpoint、请求模型、返回模型、一致性、状态、HTTP、响应时间、返回信息和错误信息。每条成功结果都可以展开“查看内容”，并支持停止尚未完成的测试。
 
+HTTP 栏会显示状态码、简短名称和状态图标。鼠标悬停或键盘聚焦时，会通过自定义 Tooltip 显示详细原因和处理建议；状态码说明集中维护在 `public/statusCodes.js` 中。
+
 ## 环境要求
 
 - Node.js 18 或更高版本

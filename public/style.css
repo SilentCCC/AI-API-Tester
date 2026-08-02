@@ -203,9 +203,23 @@ pre { min-height: 120px; max-height: 360px; margin: 0; overflow: auto; padding: 
 .multi-site-result-table th:nth-child(5) { width: 140px; }
 .multi-site-result-table th:nth-child(6) { width: 70px; }
 .multi-site-result-table th:nth-child(7) { width: 90px; }
-.multi-site-result-table th:nth-child(8) { width: 60px; }
+.multi-site-result-table th:nth-child(8) { width: 130px; }
 .multi-site-result-table th:nth-child(9) { width: 100px; }
 .multi-site-result-table th:nth-child(10) { width: 160px; }
+.http-status-trigger { max-width: 100%; padding: 4px 6px; overflow: hidden; border: 1px solid transparent; border-radius: 7px; outline: none; background: transparent; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
+.http-status-trigger:hover, .http-status-trigger:focus-visible { border-color: currentColor; background: rgba(255, 255, 255, 0.04); }
+.http-status-success { color: var(--accent); }
+.http-status-warning { color: var(--warning); }
+.http-status-error { color: var(--danger); }
+.http-status-unknown { color: var(--muted); }
+.http-status-tooltip { --http-tooltip-arrow-left: 50%; position: fixed; z-index: 100; display: flex; width: min(310px, calc(100vw - 24px)); padding: 14px 15px; flex-direction: column; gap: 8px; border: 1px solid #344054; border-radius: 12px; color: #dce3ed; background: #171d27; box-shadow: 0 18px 45px rgba(0, 0, 0, 0.42); font-size: 12px; line-height: 1.6; opacity: 0; pointer-events: auto; visibility: hidden; transition: opacity 140ms ease, visibility 140ms ease; }
+.http-status-tooltip[hidden] { display: none; }
+.http-status-tooltip.is-visible { opacity: 1; visibility: visible; }
+.http-status-tooltip::after { position: absolute; left: clamp(12px, var(--http-tooltip-arrow-left), calc(100% - 12px)); width: 10px; height: 10px; border-right: 1px solid #344054; border-bottom: 1px solid #344054; background: #171d27; content: ""; transform: translateX(-50%) rotate(45deg); }
+.http-status-tooltip[data-placement="top"]::after { bottom: -6px; }
+.http-status-tooltip[data-placement="bottom"]::after { top: -6px; border: 0; border-top: 1px solid #344054; border-left: 1px solid #344054; }
+.http-status-tooltip strong { color: var(--text); font-size: 13px; }
+.http-status-suggestion { color: var(--accent); }
 .response-details { color: var(--muted); }
 .response-details summary { cursor: pointer; font-size: 12px; white-space: nowrap; }
 .batch-response { min-width: 320px; min-height: 0; max-height: 240px; margin-top: 8px; padding: 10px; font-size: 12px; }
