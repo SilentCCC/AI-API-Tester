@@ -10,6 +10,7 @@ const {
   mergeImportedSites,
   normalizeEndpoint,
   parseImportConfig,
+  reorderSites,
   saveSites
 } = require('../public/siteManager');
 
@@ -103,4 +104,17 @@ test('重复端点可以检测并在确认后覆盖', () => {
 
   assert.deepEqual(findDuplicateEndpoints(existing, imported), ['https://api.example.com/v1']);
   assert.deepEqual(mergeImportedSites(existing, imported, true), imported);
+});
+
+test('站点可以拖动到目标站点之前或之后', () => {
+  const sites = [
+    { id: 'a', name: 'A' },
+    { id: 'b', name: 'B' },
+    { id: 'c', name: 'C' },
+    { id: 'd', name: 'D' }
+  ];
+
+  assert.deepEqual(reorderSites(sites, 'd', 'b', 'before').map((site) => site.id), ['a', 'd', 'b', 'c']);
+  assert.deepEqual(reorderSites(sites, 'a', 'c', 'after').map((site) => site.id), ['b', 'c', 'a', 'd']);
+  assert.deepEqual(reorderSites(sites, 'missing', 'b', 'before'), sites);
 });

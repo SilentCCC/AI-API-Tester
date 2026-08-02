@@ -123,7 +123,15 @@ input:disabled, select:disabled, button:disabled { cursor: not-allowed; opacity:
 .site-list-heading h3 { margin-bottom: 5px; font-size: 16px; }
 .site-list-heading p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
 .site-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; padding: 0 26px 26px; }
-.site-card { display: flex; min-width: 0; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
+.site-card { position: relative; display: flex; min-width: 0; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); transition: border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease, transform 140ms ease; }
+.site-card-header { display: flex; align-items: center; gap: 9px; }
+.site-card-header .site-select { min-width: 0; flex: 1; }
+.site-drag-handle { display: grid; width: 28px; height: 28px; flex: 0 0 auto; padding: 0; place-items: center; border: 1px solid transparent; border-radius: 7px; outline: none; color: #7f8ba0; background: transparent; font-size: 20px; line-height: 1; cursor: grab; user-select: none; }
+.site-drag-handle:hover, .site-drag-handle:focus-visible { border-color: var(--border); color: var(--accent); background: rgba(105, 228, 181, 0.08); }
+.site-drag-handle:active { cursor: grabbing; }
+.site-card-dragging { opacity: 0.45; transform: scale(0.985); }
+.site-drop-before { border-color: var(--accent); box-shadow: -5px 0 0 var(--accent), 0 0 0 2px rgba(105, 228, 181, 0.1); }
+.site-drop-after { border-color: var(--accent); box-shadow: 5px 0 0 var(--accent), 0 0 0 2px rgba(105, 228, 181, 0.1); }
 .site-select { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .site-select input { flex: 0 0 auto; width: 17px; min-height: 17px; margin: 0; accent-color: var(--accent); }
 .site-select strong { min-width: 0; overflow-wrap: anywhere; }
