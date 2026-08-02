@@ -92,6 +92,21 @@
     return reordered;
   }
 
+  function reorderSite(sites, sourceId, targetId, placement = 'before') {
+    if (sourceId === targetId) return [...sites];
+
+    const sourceIndex = sites.findIndex((site) => site.id === sourceId);
+    const targetIndex = sites.findIndex((site) => site.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return [...sites];
+
+    const reordered = [...sites];
+    const [sourceSite] = reordered.splice(sourceIndex, 1);
+    const adjustedTargetIndex = reordered.findIndex((site) => site.id === targetId);
+    const insertIndex = placement === 'after' ? adjustedTargetIndex + 1 : adjustedTargetIndex;
+    reordered.splice(insertIndex, 0, sourceSite);
+    return reordered;
+  }
+
   function buildSiteModelTasks(sites, models) {
     return sites.flatMap((site) => models.map((model) => ({
       id: `${site.id}::${model}`,
@@ -111,6 +126,7 @@
     moveSite,
     normalizeEndpoint,
     parseImportConfig,
+    reorderSite,
     saveSites
   };
 

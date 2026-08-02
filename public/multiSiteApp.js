@@ -48,6 +48,7 @@ let multiSiteRunning = false;
 let siteModelsLoading = false;
 let httpTooltipHideTimer = null;
 let configDialogResolver = null;
+let draggedSiteId = null;
 
 async function checkLocalService() {
   try {
@@ -228,6 +229,27 @@ function updateSiteControls() {
   updateMultiSiteModelControls();
 }
 
+function clearSiteDragState() {
+  multiSiteElements.siteList.querySelectorAll('.site-card').forEach((card) => {
+    card.classList.remove('site-card-dragging', 'site-drop-before', 'site-drop-after');
+  });
+}
+
+function finishSiteDrag() {
+  draggedSiteId = null;
+  clearSiteDragState();
+}
+
+function getSiteDropPlacement(card, event) {
+  const rect = card.getBoundingClientRect();
+  const horizontalDistance = Math.abs((event.clientX - (rect.left + rect.width / 2)) / rect.width);
+  const verticalDistance = Math.abs((event.clientY - (rect.top + rect.height / 2)) / rect.height);
+  if (horizontalDistance >= verticalDistance) {
+    return event.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+  }
+  return event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+}
+
 function renderSites() {
   multiSiteElements.siteList.replaceChildren();
 
@@ -244,6 +266,7 @@ function renderSites() {
   for (const [siteIndex, site] of apiSites.entries()) {
     const card = document.createElement('article');
     card.className = 'site-card';
+    card.dataset.siteId = site.id;
 
     const selectLabel = document.createElement('label');
     selectLabel.className = 'site-select';
@@ -274,6 +297,22 @@ function renderSites() {
     actions.className = 'site-card-actions';
     const orderActions = document.createElement('div');
     orderActions.className = 'site-order-actions';
+    const dragHandle = document.createElement('button');
+    dragHandle.className = 'site-drag-handle';
+    dragHandle.type = 'button';
+    dragHandle.textContent = '⠿';
+    dragHandle.title = '拖动调整站点顺序';
+    dragHandle.setAttribute('aria-label', `拖动 ${site.name} 调整顺序`);
+    dragHandle.draggable = !(multiSiteRunning || siteModelsLoading);
+    dragHandle.disabled = multiSiteRunning || siteModelsLoading;
+    dragHandle.addEventListener('dragstart', (event) => {
+      draggedSiteId = site.id;
+      clearSiteDragState();
+      card.classList.add('site-card-dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', site.id);
+    });
+    dragHandle.addEventListener('dragend', finishSiteDrag);
     const moveLeftButton = document.createElement('button');
     moveLeftButton.className = 'site-order-button';
     moveLeftButton.type = 'button';
@@ -290,7 +329,34 @@ function renderSites() {
     moveRightButton.setAttribute('aria-label', `${site.name} 向后移动一位`);
     moveRightButton.disabled = siteIndex === apiSites.length - 1 || multiSiteRunning || siteModelsLoading;
     moveRightButton.addEventListener('click', () => moveSiteCard(site.id, 1));
-    orderActions.append(moveLeftButton, moveRightButton);
+    orderActions.append(dragHandle, moveLeftButton, moveRightButton);
+
+    card.addEventListener('dragover', (event) => {
+      if (!draggedSiteId || draggedSiteId === site.id) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      const placement = getSiteDropPlacement(card, event);
+      clearSiteDragState();
+      card.classList.add(`site-drop-${placement}`);
+      const draggedCard = [...multiSiteElements.siteList.children]
+        .find((item) => item.dataset.siteId === draggedSiteId);
+      draggedCard?.classList.add('site-card-dragging');
+    });
+    card.addEventListener('dragleave', (event) => {
+      if (!card.contains(event.relatedTarget)) {
+        card.classList.remove('site-drop-before', 'site-drop-after');
+      }
+    });
+    card.addEventListener('drop', (event) => {
+      if (!draggedSiteId || draggedSiteId === site.id) return;
+      event.preventDefault();
+      const placement = getSiteDropPlacement(card, event);
+      apiSites = SiteManager.reorderSite(apiSites, draggedSiteId, site.id, placement);
+      SiteManager.saveSites(apiSites);
+      finishSiteDrag();
+      renderSites();
+      setSiteMessage('站点顺序已保存。', 'success');
+    });
     const editButton = document.createElement('button');
     editButton.className = 'button button-secondary button-small';
     editButton.type = 'button';

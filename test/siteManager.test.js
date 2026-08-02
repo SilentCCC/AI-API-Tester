@@ -11,6 +11,7 @@ const {
   moveSite,
   normalizeEndpoint,
   parseImportConfig,
+  reorderSite,
   saveSites
 } = require('../public/siteManager');
 
@@ -117,4 +118,17 @@ test('站点可以使用左右按钮向前或向后移动一位', () => {
   assert.deepEqual(moveSite(sites, 'b', 1).map((site) => site.id), ['a', 'c', 'b']);
   assert.deepEqual(moveSite(sites, 'a', -1), sites);
   assert.deepEqual(moveSite(sites, 'c', 1), sites);
+});
+
+test('站点可以拖动到目标站点之前或之后', () => {
+  const sites = [
+    { id: 'a', name: 'A' },
+    { id: 'b', name: 'B' },
+    { id: 'c', name: 'C' },
+    { id: 'd', name: 'D' }
+  ];
+
+  assert.deepEqual(reorderSite(sites, 'd', 'b', 'before').map((site) => site.id), ['a', 'd', 'b', 'c']);
+  assert.deepEqual(reorderSite(sites, 'a', 'c', 'after').map((site) => site.id), ['b', 'c', 'a', 'd']);
+  assert.deepEqual(reorderSite(sites, 'missing', 'b', 'before'), sites);
 });
