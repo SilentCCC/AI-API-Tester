@@ -337,29 +337,11 @@ function createSiteModelSummary(summary) {
   list.className = 'site-model-tooltip-list';
   tooltip.append(title, count, list);
 
-  let expanded = false;
-  const renderList = () => {
-    const models = expanded ? summary.models : summary.models.slice(0, 10);
-    list.replaceChildren(...models.map((model) => {
-      const item = document.createElement('li');
-      item.textContent = model;
-      return item;
-    }));
-  };
-  renderList();
-
-  if (summary.models.length > 10) {
-    const moreButton = document.createElement('button');
-    moreButton.className = 'site-model-more';
-    moreButton.type = 'button';
-    moreButton.textContent = '查看更多';
-    moreButton.addEventListener('click', () => {
-      expanded = !expanded;
-      moreButton.textContent = expanded ? '收起' : '查看更多';
-      renderList();
-    });
-    tooltip.append(moreButton);
-  }
+  list.replaceChildren(...summary.models.map((model) => {
+    const item = document.createElement('li');
+    item.textContent = model;
+    return item;
+  }));
 
   wrapper.append(trigger, tooltip);
   return wrapper;
