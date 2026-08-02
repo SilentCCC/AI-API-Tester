@@ -128,6 +128,20 @@
         <div id="multi-site-result-empty" class="empty-state">选择一个或多个站点和模型后点击“开始批量测试”。</div>
 
         <div id="multi-site-result-content" class="batch-result-content" hidden>
+          <div id="batch-performance-summary" class="batch-performance-summary" aria-label="批量测试统计">
+            <div class="performance-stat">
+              <span>成功</span>
+              <strong id="batch-success-count">0/0</strong>
+            </div>
+            <div class="performance-stat">
+              <span>失败</span>
+              <strong id="batch-failure-count">0</strong>
+            </div>
+            <div class="performance-stat">
+              <span>成功率</span>
+              <strong id="batch-success-rate">0%</strong>
+            </div>
+          </div>
           <div class="table-wrap batch-table-wrap">
             <table class="multi-site-result-table">
               <thead>
@@ -138,7 +152,10 @@
                   <th>返回模型</th>
                   <th>一致性</th>
                   <th>状态</th>
-                  <th>响应时间</th>
+                  <th>首字时间<small>开始响应</small></th>
+                  <th>总耗时<small>完整响应</small></th>
+                  <th>Token 统计</th>
+                  <th>生成速度<small>输出 Token / 生成耗时</small></th>
                   <th>HTTP</th>
                   <th>返回信息</th>
                   <th>错误信息</th>

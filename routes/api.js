@@ -46,6 +46,94 @@ async function parseResponse(response) {
   }
 }
 
+async function readResponseWithMetrics(response, startedAt) {
+  if (!response.body) {
+    const text = await response.text();
+    const responseTime = Math.round(performance.now() - startedAt);
+    return {
+      payload: parseResponseText(text),
+      ttft: text.trim() ? responseTime : null,
+      responseTime
+    };
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = '';
+  let ttft = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value?.byteLength) continue;
+
+    const chunk = decoder.decode(value, { stream: true });
+    text += chunk;
+    if (ttft === null && chunk.trim()) {
+      ttft = Math.round(performance.now() - startedAt);
+    }
+  }
+
+  const finalChunk = decoder.decode();
+  text += finalChunk;
+  if (ttft === null && finalChunk.trim()) {
+    ttft = Math.round(performance.now() - startedAt);
+  }
+
+  return {
+    payload: parseResponseText(text),
+    ttft,
+    responseTime: Math.round(performance.now() - startedAt)
+  };
+}
+
+function parseResponseText(text) {
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+}
+
+function getNumericUsageValue(usage, names) {
+  for (const name of names) {
+    const value = usage?.[name];
+    if (Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+function extractUsage(payload) {
+  const source = payload?.usage;
+  if (!source || typeof source !== 'object') return null;
+
+  const inputTokens = getNumericUsageValue(source, ['input_tokens', 'prompt_tokens', 'inputTokens', 'promptTokens']);
+  const outputTokens = getNumericUsageValue(source, ['output_tokens', 'completion_tokens', 'outputTokens', 'completionTokens']);
+  const reportedTotal = getNumericUsageValue(source, ['total_tokens', 'totalTokens']);
+  const totalTokens = reportedTotal ?? (
+    Number.isFinite(inputTokens) && Number.isFinite(outputTokens)
+      ? inputTokens + outputTokens
+      : null
+  );
+
+  if (![inputTokens, outputTokens, totalTokens].some(Number.isFinite)) return null;
+  return { inputTokens, outputTokens, totalTokens };
+}
+
+function createPerformanceMetrics(payload, ttft, responseTime) {
+  const usage = extractUsage(payload);
+  const generationTime = Number.isFinite(ttft) ? Math.max(responseTime - ttft, 0) : null;
+  const tokensPerSecond = usage
+    && Number.isFinite(usage.outputTokens)
+    && Number.isFinite(generationTime)
+    && generationTime > 0
+      ? Number((usage.outputTokens / (generationTime / 1000)).toFixed(2))
+      : null;
+
+  return { ttft, responseTime, generationTime, usage, tokensPerSecond };
+}
+
 async function requestUpstream(url, options, externalSignal) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -109,7 +197,7 @@ router.get('/health', (request, response) => {
   response.json({
     success: true,
     service: 'AI API Tester',
-    version: '0.4.8'
+    version: '0.4.9'
   });
 });
 
@@ -180,8 +268,9 @@ router.post('/test-model', async (request, response) => {
         temperature: 0
       })
     }, clientController.signal);
-    const responseTime = Math.round(performance.now() - startedAt);
-    const payload = await parseResponse(upstream);
+    const timedResponse = await readResponseWithMetrics(upstream, startedAt);
+    const { payload, ttft, responseTime } = timedResponse;
+    const metrics = createPerformanceMetrics(payload, ttft, responseTime);
 
     if (!upstream.ok) {
       const returnedModel = typeof payload?.model === 'string' ? payload.model : null;
@@ -191,7 +280,7 @@ router.post('/test-model', async (request, response) => {
         returnedModel,
         consistency: detectModelConsistency(requestedModel, returnedModel),
         httpStatus: upstream.status,
-        responseTime,
+        ...metrics,
         message: getErrorMessage(upstream.status, payload)
       });
       return;
@@ -204,7 +293,7 @@ router.post('/test-model', async (request, response) => {
       returnedModel,
       consistency: detectModelConsistency(requestedModel, returnedModel),
       httpStatus: upstream.status,
-      responseTime,
+      ...metrics,
       content: extractContent(payload),
       rawResponse: payload
     });

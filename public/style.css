@@ -189,6 +189,7 @@ input:disabled, select:disabled, button:disabled { cursor: not-allowed; opacity:
 table { width: 100%; min-width: 780px; border-collapse: collapse; }
 th, td { padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
 th { color: var(--muted); background: var(--surface-soft); font-size: 12px; }
+th small { display: block; margin-top: 3px; color: #758196; font-size: 9px; font-weight: 500; line-height: 1.3; }
 td { font-size: 13px; line-height: 1.55; }
 tbody tr:last-child td { border-bottom: 0; }
 
@@ -201,20 +202,29 @@ tbody tr:last-child td { border-bottom: 0; }
 pre { min-height: 120px; max-height: 360px; margin: 0; overflow: auto; padding: 16px; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: #0d1016; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.65 Consolas, monospace; }
 
 .batch-result-content { padding: 26px; }
+.batch-performance-summary { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.performance-stat { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.performance-stat span { color: var(--muted); font-size: 12px; }
+.performance-stat strong { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
 .multi-site-result-table tr.row-running { background: rgba(244, 197, 91, 0.04); }
 .multi-site-result-table tr.row-error { background: rgba(255, 123, 123, 0.035); }
 .multi-site-result-table tr.row-stopped { opacity: 0.65; }
-.multi-site-result-table { min-width: 1270px; table-layout: fixed; }
+.multi-site-result-table { min-width: 1600px; table-layout: fixed; }
 .multi-site-result-table th, .multi-site-result-table td { padding-right: 7px; padding-left: 7px; }
 .multi-site-result-table th:nth-child(1) { width: 105px; }
 .multi-site-result-table th:nth-child(2) { width: 215px; }
 .multi-site-result-table th:nth-child(3), .multi-site-result-table th:nth-child(4) { width: 130px; }
 .multi-site-result-table th:nth-child(5) { width: 140px; }
 .multi-site-result-table th:nth-child(6) { width: 70px; }
-.multi-site-result-table th:nth-child(7) { width: 90px; }
-.multi-site-result-table th:nth-child(8) { width: 130px; }
-.multi-site-result-table th:nth-child(9) { width: 100px; }
-.multi-site-result-table th:nth-child(10) { width: 160px; }
+.multi-site-result-table th:nth-child(7), .multi-site-result-table th:nth-child(8) { width: 90px; }
+.multi-site-result-table th:nth-child(9) { width: 145px; }
+.multi-site-result-table th:nth-child(10) { width: 100px; }
+.multi-site-result-table th:nth-child(11) { width: 130px; }
+.multi-site-result-table th:nth-child(12) { width: 100px; }
+.multi-site-result-table th:nth-child(13) { width: 160px; }
+.token-metrics { display: flex; min-width: 125px; flex-direction: column; gap: 2px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.token-metrics strong { color: var(--text); font-weight: 700; }
+.metric-unavailable { color: var(--muted); font-size: 11px; line-height: 1.45; }
 .http-status-trigger { max-width: 100%; padding: 4px 6px; overflow: hidden; border: 1px solid transparent; border-radius: 7px; outline: none; background: transparent; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
 .http-status-trigger:hover, .http-status-trigger:focus-visible { border-color: currentColor; background: rgba(255, 255, 255, 0.04); }
 .http-status-success { color: var(--accent); }
@@ -243,6 +253,7 @@ pre { min-height: 120px; max-height: 360px; margin: 0; overflow: auto; padding: 
   .mode-heading, .batch-toolbar { align-items: flex-start; flex-direction: column; }
   .site-list-heading { align-items: flex-start; flex-direction: column; }
   .batch-progress { width: 100%; margin-left: 0; }
+  .batch-performance-summary { grid-template-columns: 1fr; }
   .test-help-tooltip { left: 0; transform: translate(0, 6px); }
   .test-help-tooltip::after { left: 12px; }
   .test-help:hover .test-help-tooltip, .test-help:focus-within .test-help-tooltip { transform: translate(0, 0); }
