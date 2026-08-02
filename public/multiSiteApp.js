@@ -48,7 +48,6 @@ let multiSiteRunning = false;
 let siteModelsLoading = false;
 let httpTooltipHideTimer = null;
 let configDialogResolver = null;
-let draggedSiteId = null;
 
 async function checkLocalService() {
   try {
@@ -229,27 +228,6 @@ function updateSiteControls() {
   updateMultiSiteModelControls();
 }
 
-function clearSiteDropIndicators() {
-  multiSiteElements.siteList.querySelectorAll('.site-card').forEach((card) => {
-    card.classList.remove('site-card-dragging', 'site-drop-before', 'site-drop-after');
-  });
-}
-
-function getSiteDropPlacement(card, event) {
-  const rect = card.getBoundingClientRect();
-  const rowDifference = Math.abs(event.clientY - (rect.top + rect.height / 2));
-  const columnDifference = Math.abs(event.clientX - (rect.left + rect.width / 2));
-  if (columnDifference > rowDifference) {
-    return event.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
-  }
-  return event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
-}
-
-function finishSiteDrag() {
-  draggedSiteId = null;
-  clearSiteDropIndicators();
-}
-
 function renderSites() {
   multiSiteElements.siteList.replaceChildren();
 
@@ -266,26 +244,6 @@ function renderSites() {
   for (const site of apiSites) {
     const card = document.createElement('article');
     card.className = 'site-card';
-    card.dataset.siteId = site.id;
-
-    const cardHeader = document.createElement('div');
-    cardHeader.className = 'site-card-header';
-
-    const dragHandle = document.createElement('button');
-    dragHandle.className = 'site-drag-handle';
-    dragHandle.type = 'button';
-    dragHandle.draggable = !(multiSiteRunning || siteModelsLoading);
-    dragHandle.disabled = multiSiteRunning || siteModelsLoading;
-    dragHandle.textContent = '⠿';
-    dragHandle.title = '拖动调整站点顺序';
-    dragHandle.setAttribute('aria-label', `拖动 ${site.name} 调整顺序`);
-    dragHandle.addEventListener('dragstart', (event) => {
-      draggedSiteId = site.id;
-      card.classList.add('site-card-dragging');
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', site.id);
-    });
-    dragHandle.addEventListener('dragend', finishSiteDrag);
 
     const selectLabel = document.createElement('label');
     selectLabel.className = 'site-select';
@@ -302,28 +260,6 @@ function renderSites() {
     const name = document.createElement('strong');
     name.textContent = site.name;
     selectLabel.append(checkbox, name);
-    cardHeader.append(dragHandle, selectLabel);
-
-    card.addEventListener('dragover', (event) => {
-      if (!draggedSiteId || draggedSiteId === site.id) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
-      const placement = getSiteDropPlacement(card, event);
-      clearSiteDropIndicators();
-      card.classList.add(`site-drop-${placement}`);
-      const draggedCard = multiSiteElements.siteList.querySelector(`[data-site-id="${CSS.escape(draggedSiteId)}"]`);
-      draggedCard?.classList.add('site-card-dragging');
-    });
-    card.addEventListener('drop', (event) => {
-      if (!draggedSiteId || draggedSiteId === site.id) return;
-      event.preventDefault();
-      const placement = getSiteDropPlacement(card, event);
-      apiSites = SiteManager.reorderSites(apiSites, draggedSiteId, site.id, placement);
-      SiteManager.saveSites(apiSites);
-      finishSiteDrag();
-      renderSites();
-      setSiteMessage('站点顺序已保存。', 'success');
-    });
 
     const endpoint = document.createElement('span');
     endpoint.className = 'site-endpoint';
@@ -350,7 +286,7 @@ function renderSites() {
     deleteButton.addEventListener('click', () => deleteSite(site.id));
     actions.append(editButton, deleteButton);
 
-    card.append(cardHeader, endpoint, key, actions);
+    card.append(selectLabel, endpoint, key, actions);
     fragment.append(card);
   }
 
