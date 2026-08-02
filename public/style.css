@@ -244,6 +244,12 @@ pre { min-height: 120px; max-height: 360px; margin: 0; overflow: auto; padding: 
 .response-details summary { cursor: pointer; font-size: 12px; white-space: nowrap; }
 .batch-response { min-width: 320px; min-height: 0; max-height: 240px; margin-top: 8px; padding: 10px; font-size: 12px; }
 .endpoint-cell { max-width: 215px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.error-collapse { display: grid; min-width: 0; grid-template-columns: 1fr; align-items: start; }
+.error-collapse.is-collapsible { grid-template-columns: 18px minmax(0, 1fr); }
+.error-collapse-toggle { width: 18px; height: 22px; padding: 0; border: 0; outline: none; color: var(--muted); background: transparent; font-size: 12px; line-height: 22px; text-align: left; cursor: pointer; }
+.error-collapse-toggle:hover, .error-collapse-toggle:focus-visible { color: var(--accent); }
+.error-collapse-preview { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.error-collapse-full { grid-column: 1 / -1; min-width: 240px; min-height: 0; max-height: 220px; margin: 4px 0 0; overflow: auto; padding: 9px 10px; border-radius: 8px; color: var(--text); background: #0d1016; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (max-width: 760px) {
   .app-shell { padding-top: 34px; }

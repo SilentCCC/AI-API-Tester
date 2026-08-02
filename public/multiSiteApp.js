@@ -622,6 +622,45 @@ function renderResponseContent(cell, content) {
   cell.replaceChildren(details);
 }
 
+function renderErrorContent(cell, message) {
+  const value = String(message || '未知错误').trim();
+  const previewText = value.split(/\r?\n/, 1)[0] || value;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'error-collapse';
+  const toggle = document.createElement('button');
+  toggle.className = 'error-collapse-toggle';
+  toggle.type = 'button';
+  toggle.textContent = '▸';
+  toggle.setAttribute('aria-label', '展开完整错误信息');
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.hidden = true;
+  const preview = document.createElement('span');
+  preview.className = 'error-collapse-preview';
+  preview.textContent = previewText;
+  const full = document.createElement('pre');
+  full.className = 'error-collapse-full';
+  full.textContent = value;
+  full.hidden = true;
+
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!expanded));
+    toggle.setAttribute('aria-label', expanded ? '展开完整错误信息' : '收起完整错误信息');
+    toggle.textContent = expanded ? '▸' : '▾';
+    preview.hidden = !expanded;
+    full.hidden = expanded;
+  });
+
+  wrapper.append(toggle, preview, full);
+  cell.replaceChildren(wrapper);
+
+  requestAnimationFrame(() => {
+    const hasMoreContent = value.includes('\n') || preview.scrollWidth > preview.clientWidth;
+    toggle.hidden = !hasMoreContent;
+    wrapper.classList.toggle('is-collapsible', hasMoreContent);
+  });
+}
+
 function getHttpStatusTooltip() {
   let tooltip = document.querySelector('#http-status-tooltip');
   if (tooltip) return tooltip;
@@ -718,7 +757,8 @@ function renderMultiSiteResultRow(rowState, result) {
   renderHttpStatus(rowState.cells.http, result.httpStatus);
   rowState.cells.time.textContent = Number.isFinite(result.responseTime) ? `${result.responseTime} ms` : '未知';
   renderResponseContent(rowState.cells.content, result.content);
-  rowState.cells.error.textContent = result.success ? '无' : (result.message || '未知错误');
+  if (result.success) rowState.cells.error.textContent = '无';
+  else renderErrorContent(rowState.cells.error, result.message);
 }
 
 function setMultiSiteRunning(running) {
