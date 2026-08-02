@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI API Tester 本地 Web 测试工具">
+    <title>AI API Tester</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <div class="brand-mark" aria-hidden="true">AI</div>
+        <div class="hero-copy">
+          <p class="eyebrow">LOCAL WEB TOOL</p>
+          <h1>AI API Tester</h1>
+          <p class="subtitle">测试 OpenAI Compatible API，并审慎检查请求模型与返回模型的一致性。</p>
+        </div>
+        <span id="service-badge" class="badge badge-pending">服务检查中</span>
+      </header>
+
+      <section class="panel" aria-labelledby="site-manager-title">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">多 API 站点</p>
+            <h2 id="site-manager-title">API 站点管理</h2>
+          </div>
+          <span id="service-message" class="muted">正在连接本地服务...</span>
+        </div>
+
+        <form id="site-form" class="site-form">
+          <input id="editing-site-id" type="hidden">
+          <label class="field">
+            <span>站点名称</span>
+            <input id="site-name" type="text" placeholder="例如：OpenAI 测试" maxlength="80" required>
+          </label>
+          <label class="field">
+            <span>Endpoint</span>
+            <input id="site-endpoint" type="url" placeholder="https://api.example.com/v1" required>
+          </label>
+          <label class="field">
+            <span>API Key</span>
+            <input id="site-api-key" type="password" placeholder="sk-xxxxxxxx" autocomplete="off" required>
+          </label>
+          <div class="site-form-actions">
+            <button id="save-site" class="button button-primary" type="submit">保存站点</button>
+            <button id="cancel-site-edit" class="button button-secondary" type="button" hidden>取消编辑</button>
+            <span id="site-message" class="form-message" role="status"></span>
+          </div>
+        </form>
+
+        <div class="site-list-heading">
+          <div>
+            <h3>选择测试站点</h3>
+            <p>已选择 <strong id="selected-site-count">0</strong> 个站点</p>
+          </div>
+          <div class="selection-actions">
+            <button id="select-all-sites" class="button button-secondary button-small" type="button" disabled>全选站点</button>
+            <button id="clear-sites" class="button button-secondary button-small" type="button" disabled>清空选择</button>
+          </div>
+        </div>
+        <div id="site-list" class="site-list" aria-label="API 站点列表">
+          <div class="list-empty">还没有保存 API 站点。</div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="multi-site-test-title">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">组合测试</p>
+            <h2 id="multi-site-test-title">API 站点与模型测试</h2>
+          </div>
+          <span class="muted">默认最多同时测试 3 个请求</span>
+        </div>
+
+        <div class="multi-site-workspace">
+          <div class="mode-heading batch-toolbar">
+            <div>
+              <h3>模型选择</h3>
+              <p>选择一个或多个站点后获取模型，当前选择 <strong id="multi-site-model-count">0</strong> 个模型。</p>
+            </div>
+            <div class="selection-actions">
+              <button id="load-site-models" class="button button-secondary" type="button" disabled>获取所选站点模型</button>
+              <button id="select-all-site-models" class="button button-secondary button-small" type="button" disabled>全选模型</button>
+              <button id="clear-site-models" class="button button-secondary button-small" type="button" disabled>清空模型</button>
+            </div>
+          </div>
+
+          <label class="field site-model-search-field">
+            <span>搜索汇总模型</span>
+            <input id="multi-site-model-search" type="search" placeholder="输入名称筛选" disabled>
+          </label>
+          <div id="multi-site-model-list" class="multi-model-list" aria-label="多站点模型选择列表">
+            <div class="list-empty">请选择站点并获取模型。</div>
+          </div>
+
+          <div id="site-model-load-summary" class="site-model-load-summary" hidden></div>
+
+          <div class="batch-actions">
+            <button id="start-multi-site-test" class="button button-primary" type="button" disabled>开始批量测试</button>
+            <button id="stop-multi-site-test" class="button button-danger" type="button" disabled>停止测试</button>
+            <span class="test-help">
+              <button class="test-help-trigger" type="button" aria-label="查看测试说明" aria-describedby="test-help-tooltip">?</button>
+              <span id="test-help-tooltip" class="test-help-tooltip" role="tooltip">
+                <strong>测试说明</strong>
+                <span>点击“开始批量测试”后，系统会向所选 API 发送真实请求。</span>
+                <span>测试可能会：</span>
+                <span class="test-help-list">• 消耗 API Token<br>• 产生费用<br>• 影响 API 使用额度</span>
+                <span><b>建议：</b>测试前确认 API Key 和余额状态。</span>
+              </span>
+            </span>
+            <span id="multi-site-progress" class="batch-progress" role="status">等待测试</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel result-panel" aria-labelledby="multi-site-result-title">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">检测结果</p>
+            <h2 id="multi-site-result-title">API 站点与模型测试记录</h2>
+          </div>
+          <span id="multi-site-result-badge" class="badge badge-pending">等待测试</span>
+        </div>
+
+        <div id="multi-site-result-empty" class="empty-state">选择一个或多个站点和模型后点击“开始批量测试”。</div>
+
+        <div id="multi-site-result-content" class="batch-result-content" hidden>
+          <div class="table-wrap batch-table-wrap">
+            <table class="multi-site-result-table">
+              <thead>
+                <tr>
+                  <th>站点名称</th>
+                  <th>Endpoint</th>
+                  <th>请求模型</th>
+                  <th>返回模型</th>
+                  <th>一致性</th>
+                  <th>状态</th>
+                  <th>响应时间</th>
+                  <th>HTTP</th>
+                  <th>返回信息</th>
+                  <th>错误信息</th>
+                </tr>
+              </thead>
+              <tbody id="multi-site-result-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/batchRunner.js"></script>
+    <script src="/siteManager.js"></script>
+    <script src="/multiSiteApp.js" defer></script>
+  </body>
+</html>
