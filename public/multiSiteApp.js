@@ -277,7 +277,12 @@ async function loadSelectedSiteModels() {
         summaries.push({ success: false, site: site.name, message: error.message });
       } else {
         result.models.forEach((model) => modelSet.add(model));
-        summaries.push({ success: true, site: site.name, count: result.count });
+        summaries.push({
+          success: true,
+          site: site.name,
+          count: result.count,
+          models: result.models
+        });
       }
       multiSiteElements.siteModelLoadSummary.textContent = `正在获取 ${completed}/${sites.length} 个站点的模型...`;
     }
@@ -291,17 +296,73 @@ async function loadSelectedSiteModels() {
 
   multiSiteElements.siteModelLoadSummary.replaceChildren();
   for (const summary of summaries) {
-    const item = document.createElement('span');
-    item.className = summary.success ? 'load-success' : 'load-error';
-    item.textContent = summary.success
-      ? `${summary.site}：${summary.count} 个模型`
-      : `${summary.site}：${summary.message}`;
+    const item = summary.success
+      ? createSiteModelSummary(summary)
+      : createSiteModelLoadError(summary);
     multiSiteElements.siteModelLoadSummary.append(item);
   }
   multiSiteElements.loadSiteModels.textContent = '获取所选站点模型';
   siteModelsLoading = false;
   renderSites();
   updateSiteControls();
+}
+
+function createSiteModelLoadError(summary) {
+  const item = document.createElement('span');
+  item.className = 'load-error';
+  item.textContent = `${summary.site}：${summary.message}`;
+  return item;
+}
+
+function createSiteModelSummary(summary) {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'site-model-summary';
+
+  const trigger = document.createElement('button');
+  trigger.className = 'site-model-summary-trigger';
+  trigger.type = 'button';
+  trigger.textContent = `${summary.site}：${summary.count} 个模型`;
+  trigger.setAttribute('aria-label', `查看 ${summary.site} 的模型列表`);
+
+  const tooltip = document.createElement('span');
+  tooltip.className = 'site-model-tooltip';
+  tooltip.setAttribute('role', 'tooltip');
+
+  const title = document.createElement('strong');
+  title.textContent = summary.site;
+  const count = document.createElement('span');
+  count.className = 'site-model-tooltip-count';
+  count.textContent = `已获取模型（${summary.count}）`;
+  const list = document.createElement('ul');
+  list.className = 'site-model-tooltip-list';
+  tooltip.append(title, count, list);
+
+  let expanded = false;
+  const renderList = () => {
+    const models = expanded ? summary.models : summary.models.slice(0, 10);
+    list.replaceChildren(...models.map((model) => {
+      const item = document.createElement('li');
+      item.textContent = model;
+      return item;
+    }));
+  };
+  renderList();
+
+  if (summary.models.length > 10) {
+    const moreButton = document.createElement('button');
+    moreButton.className = 'site-model-more';
+    moreButton.type = 'button';
+    moreButton.textContent = '查看更多';
+    moreButton.addEventListener('click', () => {
+      expanded = !expanded;
+      moreButton.textContent = expanded ? '收起' : '查看更多';
+      renderList();
+    });
+    tooltip.append(moreButton);
+  }
+
+  wrapper.append(trigger, tooltip);
+  return wrapper;
 }
 
 function normalizeMultiSiteError(error, task) {
