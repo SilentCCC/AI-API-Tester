@@ -9,6 +9,15 @@ const multiSiteElements = {
   saveSite: document.querySelector('#save-site'),
   cancelSiteEdit: document.querySelector('#cancel-site-edit'),
   siteMessage: document.querySelector('#site-message'),
+  importConfig: document.querySelector('#import-config'),
+  exportConfig: document.querySelector('#export-config'),
+  configImportFile: document.querySelector('#config-import-file'),
+  configDialogBackdrop: document.querySelector('#config-dialog-backdrop'),
+  configDialogTitle: document.querySelector('#config-dialog-title'),
+  configDialogMessage: document.querySelector('#config-dialog-message'),
+  configDialogDetails: document.querySelector('#config-dialog-details'),
+  configDialogCancel: document.querySelector('#config-dialog-cancel'),
+  configDialogConfirm: document.querySelector('#config-dialog-confirm'),
   selectedSiteCount: document.querySelector('#selected-site-count'),
   selectAllSites: document.querySelector('#select-all-sites'),
   clearSites: document.querySelector('#clear-sites'),
@@ -38,6 +47,7 @@ let multiSiteController = null;
 let multiSiteRunning = false;
 let siteModelsLoading = false;
 let httpTooltipHideTimer = null;
+let configDialogResolver = null;
 
 async function checkLocalService() {
   try {
@@ -99,6 +109,102 @@ function resetSiteForm() {
   multiSiteElements.cancelSiteEdit.hidden = true;
 }
 
+function closeConfigDialog(confirmed) {
+  if (multiSiteElements.configDialogBackdrop.hidden) return;
+  multiSiteElements.configDialogBackdrop.hidden = true;
+  const resolver = configDialogResolver;
+  configDialogResolver = null;
+  resolver?.(confirmed);
+}
+
+function showConfigDialog({ title, message, details = '', confirmText = '确认', showCancel = true }) {
+  if (configDialogResolver) closeConfigDialog(false);
+  multiSiteElements.configDialogTitle.textContent = title;
+  multiSiteElements.configDialogMessage.textContent = message;
+  multiSiteElements.configDialogDetails.textContent = details;
+  multiSiteElements.configDialogDetails.hidden = !details;
+  multiSiteElements.configDialogConfirm.textContent = confirmText;
+  multiSiteElements.configDialogCancel.hidden = !showCancel;
+  multiSiteElements.configDialogBackdrop.hidden = false;
+  multiSiteElements.configDialogConfirm.focus();
+  return new Promise((resolve) => {
+    configDialogResolver = resolve;
+  });
+}
+
+function downloadJsonFile(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+async function exportSiteConfig() {
+  if (!apiSites.length) {
+    await showConfigDialog({
+      title: '没有可导出的配置',
+      message: '请先保存至少一个 API 站点。',
+      confirmText: '知道了',
+      showCancel: false
+    });
+    return;
+  }
+
+  const confirmed = await showConfigDialog({
+    title: '导出配置',
+    message: '导出的文件包含 API Key，请妥善保管。',
+    confirmText: '继续导出'
+  });
+  if (!confirmed) return;
+
+  const date = new Date().toISOString().slice(0, 10);
+  downloadJsonFile(`ai-api-tester-config-${date}.json`, SiteManager.createExportConfig(apiSites));
+  setSiteMessage(`已导出 ${apiSites.length} 个 API 站点配置。`, 'success');
+}
+
+async function importSiteConfig(file) {
+  let importedSites;
+  try {
+    importedSites = SiteManager.parseImportConfig(JSON.parse(await file.text()));
+  } catch (error) {
+    await showConfigDialog({
+      title: '导入失败',
+      message: error instanceof SyntaxError ? 'JSON 格式错误，请检查文件内容。' : error.message,
+      confirmText: '知道了',
+      showCancel: false
+    });
+    return;
+  }
+
+  const duplicateEndpoints = SiteManager.findDuplicateEndpoints(apiSites, importedSites);
+  let overwriteDuplicates = false;
+  if (duplicateEndpoints.length) {
+    overwriteDuplicates = await showConfigDialog({
+      title: '检测到重复端点',
+      message: '检测到相同 API 地址，是否覆盖？\n选择“覆盖”将使用导入文件中的配置替换现有配置。',
+      details: duplicateEndpoints.join('\n'),
+      confirmText: '覆盖'
+    });
+    if (!overwriteDuplicates) {
+      setSiteMessage('已取消导入，现有配置未修改。');
+      return;
+    }
+  }
+
+  apiSites = SiteManager.mergeImportedSites(apiSites, importedSites, overwriteDuplicates);
+  SiteManager.saveSites(apiSites);
+  selectedSiteIds = new Set([...selectedSiteIds].filter((id) => apiSites.some((site) => site.id === id)));
+  invalidateAggregatedModels();
+  resetSiteForm();
+  renderSites();
+  setSiteMessage(`已导入 ${importedSites.length} 个 API 站点配置。`, 'success');
+}
+
 function invalidateAggregatedModels() {
   aggregatedSiteModels = [];
   selectedSiteModels.clear();
@@ -117,6 +223,8 @@ function updateSiteControls() {
   multiSiteElements.clearSites.disabled = selectedCount === 0 || siteControlsLocked;
   multiSiteElements.loadSiteModels.disabled = selectedCount === 0 || siteControlsLocked;
   multiSiteElements.saveSite.disabled = siteControlsLocked;
+  multiSiteElements.importConfig.disabled = siteControlsLocked;
+  multiSiteElements.exportConfig.disabled = siteCount === 0 || siteControlsLocked;
   updateMultiSiteModelControls();
 }
 
@@ -632,6 +740,24 @@ multiSiteElements.clearSites.addEventListener('click', () => {
   selectedSiteIds.clear();
   invalidateAggregatedModels();
   renderSites();
+});
+
+multiSiteElements.importConfig.addEventListener('click', () => {
+  multiSiteElements.configImportFile.value = '';
+  multiSiteElements.configImportFile.click();
+});
+multiSiteElements.exportConfig.addEventListener('click', exportSiteConfig);
+multiSiteElements.configImportFile.addEventListener('change', () => {
+  const [file] = multiSiteElements.configImportFile.files;
+  if (file) importSiteConfig(file);
+});
+multiSiteElements.configDialogCancel.addEventListener('click', () => closeConfigDialog(false));
+multiSiteElements.configDialogConfirm.addEventListener('click', () => closeConfigDialog(true));
+multiSiteElements.configDialogBackdrop.addEventListener('click', (event) => {
+  if (event.target === multiSiteElements.configDialogBackdrop) closeConfigDialog(false);
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !multiSiteElements.configDialogBackdrop.hidden) closeConfigDialog(false);
 });
 
 multiSiteElements.loadSiteModels.addEventListener('click', loadSelectedSiteModels);

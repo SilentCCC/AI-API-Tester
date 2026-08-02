@@ -3,9 +3,13 @@ const assert = require('node:assert/strict');
 const {
   STORAGE_KEY,
   buildSiteModelTasks,
+  createExportConfig,
   createSite,
+  findDuplicateEndpoints,
   loadSites,
+  mergeImportedSites,
   normalizeEndpoint,
+  parseImportConfig,
   saveSites
 } = require('../public/siteManager');
 
@@ -55,4 +59,48 @@ test('按站点与模型生成完整组合任务', () => {
     ['b', 'gpt-5.6'],
     ['b', 'gpt-4.1']
   ]);
+});
+
+test('导出配置只包含 API 名称、端点地址和 API Key', () => {
+  const config = createExportConfig([{
+    id: 'internal-id',
+    name: ' API 1 ',
+    endpoint: 'https://api.example.com/v1/',
+    apiKey: ' sk-secret '
+  }]);
+
+  assert.deepEqual(config, {
+    apis: [{
+      name: 'API 1',
+      endpoint: 'https://api.example.com/v1',
+      apiKey: 'sk-secret'
+    }]
+  });
+});
+
+test('导入配置校验 JSON 对象结构和每个站点字段', () => {
+  let nextId = 0;
+  const sites = parseImportConfig({
+    apis: [{ name: 'API 1', endpoint: 'https://api.example.com/v1/', apiKey: 'sk-key' }]
+  }, () => `import-${++nextId}`);
+
+  assert.deepEqual(sites, [{
+    id: 'import-1',
+    name: 'API 1',
+    endpoint: 'https://api.example.com/v1',
+    apiKey: 'sk-key'
+  }]);
+  assert.throws(() => parseImportConfig({}), /必须包含 apis 数组/);
+  assert.throws(() => parseImportConfig({ apis: [{ name: '', endpoint: 'bad', apiKey: '' }] }), /第 1 个 API 配置无效/);
+});
+
+test('重复端点可以检测并在确认后覆盖', () => {
+  const existing = [{ id: 'old', name: '旧配置', endpoint: 'https://api.example.com/v1', apiKey: 'old' }];
+  const imported = [
+    { id: 'new', name: '新配置', endpoint: 'https://api.example.com/v1/', apiKey: 'new' },
+    { id: 'other', name: '其他', endpoint: 'https://other.example/v1', apiKey: 'other' }
+  ];
+
+  assert.deepEqual(findDuplicateEndpoints(existing, imported), ['https://api.example.com/v1']);
+  assert.deepEqual(mergeImportedSites(existing, imported, true), imported);
 });
