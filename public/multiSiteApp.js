@@ -6,9 +6,20 @@ const multiSiteElements = {
   siteName: document.querySelector('#site-name'),
   siteEndpoint: document.querySelector('#site-endpoint'),
   siteApiKey: document.querySelector('#site-api-key'),
+  siteNote: document.querySelector('#site-note'),
+  siteEnabled: document.querySelector('#site-enabled'),
   saveSite: document.querySelector('#save-site'),
   cancelSiteEdit: document.querySelector('#cancel-site-edit'),
   siteMessage: document.querySelector('#site-message'),
+  importConfig: document.querySelector('#import-config'),
+  exportConfig: document.querySelector('#export-config'),
+  configImportFile: document.querySelector('#config-import-file'),
+  configDialog: document.querySelector('#config-dialog'),
+  configDialogTitle: document.querySelector('#config-dialog-title'),
+  configDialogMessage: document.querySelector('#config-dialog-message'),
+  configDialogDetails: document.querySelector('#config-dialog-details'),
+  configDialogCancel: document.querySelector('#config-dialog-cancel'),
+  configDialogConfirm: document.querySelector('#config-dialog-confirm'),
   selectedSiteCount: document.querySelector('#selected-site-count'),
   selectAllSites: document.querySelector('#select-all-sites'),
   clearSites: document.querySelector('#clear-sites'),
@@ -38,6 +49,7 @@ let multiSiteController = null;
 let multiSiteRunning = false;
 let siteModelsLoading = false;
 let httpTooltipHideTimer = null;
+let configDialogResolver = null;
 
 async function checkLocalService() {
   try {
@@ -95,8 +107,106 @@ function setSiteMessage(message, type = '') {
 function resetSiteForm() {
   multiSiteElements.siteForm.reset();
   multiSiteElements.editingSiteId.value = '';
+  multiSiteElements.siteEnabled.checked = true;
   multiSiteElements.saveSite.textContent = '保存站点';
   multiSiteElements.cancelSiteEdit.hidden = true;
+}
+
+function closeConfigDialog(confirmed) {
+  if (multiSiteElements.configDialog.hidden) return;
+  multiSiteElements.configDialog.hidden = true;
+  const resolver = configDialogResolver;
+  configDialogResolver = null;
+  resolver?.(confirmed);
+}
+
+function showConfigDialog({ title, message, details = '', confirmText = '确认', showCancel = true }) {
+  if (configDialogResolver) closeConfigDialog(false);
+  multiSiteElements.configDialogTitle.textContent = title;
+  multiSiteElements.configDialogMessage.textContent = message;
+  multiSiteElements.configDialogDetails.textContent = details;
+  multiSiteElements.configDialogDetails.hidden = !details;
+  multiSiteElements.configDialogConfirm.textContent = confirmText;
+  multiSiteElements.configDialogCancel.hidden = !showCancel;
+  multiSiteElements.configDialog.hidden = false;
+  multiSiteElements.configDialogConfirm.focus();
+  return new Promise((resolve) => {
+    configDialogResolver = resolve;
+  });
+}
+
+function downloadJsonFile(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 0);
+}
+
+async function exportSiteConfig() {
+  if (!apiSites.length) {
+    await showConfigDialog({
+      title: '没有可导出的配置',
+      message: '请先保存至少一个 API 站点。',
+      confirmText: '知道了',
+      showCancel: false
+    });
+    return;
+  }
+
+  const confirmed = await showConfigDialog({
+    title: '导出配置',
+    message: '导出的文件包含 API Key，请妥善保管。\n请勿将配置文件上传到公开位置或发送给不可信的人员。',
+    confirmText: '继续导出'
+  });
+  if (!confirmed) return;
+
+  const config = SiteManager.createExportConfig(apiSites);
+  const date = new Date().toISOString().slice(0, 10);
+  downloadJsonFile(`ai-api-tester-config-${date}.json`, config);
+  setSiteMessage(`已导出 ${apiSites.length} 个 API 站点配置。`, 'success');
+}
+
+async function importSiteConfig(file) {
+  let importedSites;
+  try {
+    const content = await file.text();
+    importedSites = SiteManager.parseImportConfig(JSON.parse(content));
+  } catch (error) {
+    await showConfigDialog({
+      title: '导入失败',
+      message: error instanceof SyntaxError ? 'JSON 格式错误，请检查文件内容。' : error.message,
+      confirmText: '知道了',
+      showCancel: false
+    });
+    return;
+  }
+
+  const duplicateEndpoints = SiteManager.findDuplicateEndpoints(apiSites, importedSites);
+  let overwriteDuplicates = false;
+  if (duplicateEndpoints.length) {
+    overwriteDuplicates = await showConfigDialog({
+      title: '检测到重复 API 地址',
+      message: '检测到相同 API 地址，是否覆盖？\n选择“覆盖”将使用导入文件中的配置替换现有配置。',
+      details: duplicateEndpoints.join('\n'),
+      confirmText: '覆盖'
+    });
+    if (!overwriteDuplicates) {
+      setSiteMessage('已取消导入，现有配置未修改。');
+      return;
+    }
+  }
+
+  apiSites = SiteManager.mergeImportedSites(apiSites, importedSites, overwriteDuplicates);
+  SiteManager.saveSites(apiSites);
+  selectedSiteIds = new Set([...selectedSiteIds].filter((id) => apiSites.some((site) => site.id === id)));
+  invalidateAggregatedModels();
+  resetSiteForm();
+  renderSites();
+  setSiteMessage(`已导入 ${importedSites.length} 个 API 站点配置。`, 'success');
 }
 
 function invalidateAggregatedModels() {
@@ -117,6 +227,8 @@ function updateSiteControls() {
   multiSiteElements.clearSites.disabled = selectedCount === 0 || siteControlsLocked;
   multiSiteElements.loadSiteModels.disabled = selectedCount === 0 || siteControlsLocked;
   multiSiteElements.saveSite.disabled = siteControlsLocked;
+  multiSiteElements.importConfig.disabled = siteControlsLocked;
+  multiSiteElements.exportConfig.disabled = siteCount === 0 || siteControlsLocked;
   updateMultiSiteModelControls();
 }
 
@@ -162,6 +274,19 @@ function renderSites() {
     key.className = 'site-key';
     key.textContent = `API Key：${maskApiKey(site.apiKey)}`;
 
+    const note = document.createElement('span');
+    note.className = 'site-note';
+    note.textContent = site.note || '无备注';
+
+    const meta = document.createElement('div');
+    meta.className = 'site-meta';
+    const status = document.createElement('span');
+    status.className = `site-status site-status-${site.enabled === false ? 'disabled' : 'enabled'}`;
+    status.textContent = site.enabled === false ? '已停用' : '已启用';
+    const createdAt = document.createElement('span');
+    createdAt.textContent = `创建：${new Date(site.createdAt).toLocaleString()}`;
+    meta.append(status, createdAt);
+
     const actions = document.createElement('div');
     actions.className = 'site-card-actions';
     const editButton = document.createElement('button');
@@ -178,7 +303,7 @@ function renderSites() {
     deleteButton.addEventListener('click', () => deleteSite(site.id));
     actions.append(editButton, deleteButton);
 
-    card.append(selectLabel, endpoint, key, actions);
+    card.append(selectLabel, endpoint, key, note, meta, actions);
     fragment.append(card);
   }
 
@@ -191,6 +316,8 @@ function editSite(site) {
   multiSiteElements.siteName.value = site.name;
   multiSiteElements.siteEndpoint.value = site.endpoint;
   multiSiteElements.siteApiKey.value = site.apiKey;
+  multiSiteElements.siteNote.value = site.note || '';
+  multiSiteElements.siteEnabled.checked = site.enabled !== false;
   multiSiteElements.saveSite.textContent = '更新站点';
   multiSiteElements.cancelSiteEdit.hidden = false;
   setSiteMessage(`正在编辑：${site.name}`);
@@ -596,11 +723,15 @@ multiSiteElements.siteForm.addEventListener('submit', (event) => {
   event.preventDefault();
   try {
     const editingId = multiSiteElements.editingSiteId.value;
+    const existingSite = apiSites.find((item) => item.id === editingId);
     const site = SiteManager.createSite({
       id: editingId || undefined,
       name: multiSiteElements.siteName.value,
       endpoint: multiSiteElements.siteEndpoint.value,
-      apiKey: multiSiteElements.siteApiKey.value
+      apiKey: multiSiteElements.siteApiKey.value,
+      note: multiSiteElements.siteNote.value,
+      enabled: multiSiteElements.siteEnabled.checked,
+      createdAt: existingSite?.createdAt
     });
     if (editingId) {
       apiSites = apiSites.map((item) => item.id === editingId ? site : item);
@@ -632,6 +763,24 @@ multiSiteElements.clearSites.addEventListener('click', () => {
   selectedSiteIds.clear();
   invalidateAggregatedModels();
   renderSites();
+});
+
+multiSiteElements.importConfig.addEventListener('click', () => {
+  multiSiteElements.configImportFile.value = '';
+  multiSiteElements.configImportFile.click();
+});
+multiSiteElements.exportConfig.addEventListener('click', exportSiteConfig);
+multiSiteElements.configImportFile.addEventListener('change', () => {
+  const [file] = multiSiteElements.configImportFile.files;
+  if (file) importSiteConfig(file);
+});
+multiSiteElements.configDialogCancel.addEventListener('click', () => closeConfigDialog(false));
+multiSiteElements.configDialogConfirm.addEventListener('click', () => closeConfigDialog(true));
+multiSiteElements.configDialog.addEventListener('click', (event) => {
+  if (event.target === multiSiteElements.configDialog) closeConfigDialog(false);
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !multiSiteElements.configDialog.hidden) closeConfigDialog(false);
 });
 
 multiSiteElements.loadSiteModels.addEventListener('click', loadSelectedSiteModels);
