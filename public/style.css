@@ -30,7 +30,7 @@ body {
 button, input, select { font: inherit; }
 
 .app-shell {
-  width: min(1080px, calc(100% - 32px));
+  width: min(1600px, calc(100% - 48px));
   margin: 0 auto;
   padding: 56px 0 80px;
 }
@@ -258,7 +258,7 @@ pre { min-height: 120px; max-height: 360px; margin: 0; overflow: auto; padding: 
 .error-collapse-full { grid-column: 1 / -1; min-width: 240px; min-height: 0; max-height: 220px; margin: 4px 0 0; overflow: auto; padding: 9px 10px; border-radius: 8px; color: var(--text); background: #0d1016; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (max-width: 760px) {
-  .app-shell { padding-top: 34px; }
+  .app-shell { width: calc(100% - 32px); padding-top: 34px; }
   .hero { align-items: flex-start; flex-wrap: wrap; }
   .hero .badge { margin-left: 84px; }
   .site-form { grid-template-columns: 1fr; }
