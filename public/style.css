@@ -108,6 +108,12 @@ input, select {
 
 input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 input:disabled, select:disabled, button:disabled { cursor: not-allowed; opacity: 0.55; }
+.api-key-input-wrap { position: relative; display: block; }
+.api-key-input-wrap input { padding-right: 48px; }
+.api-key-visibility { position: absolute; top: 50%; right: 7px; display: grid; width: 34px; height: 34px; padding: 0; place-items: center; border: 1px solid transparent; border-radius: 8px; outline: none; color: var(--muted); background: transparent; cursor: pointer; transform: translateY(-50%); }
+.api-key-visibility:hover, .api-key-visibility:focus-visible { border-color: var(--border); color: var(--accent); background: rgba(105, 228, 181, 0.08); }
+.eye-icon { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.eye-icon[hidden] { display: none; }
 .button { min-height: 42px; padding: 0 18px; border: 1px solid transparent; border-radius: 10px; color: var(--text); font-weight: 700; cursor: pointer; }
 .button-primary { color: #07130f; background: var(--accent); }
 .button-secondary { border-color: var(--border); background: var(--surface-soft); }

@@ -6,6 +6,9 @@ const multiSiteElements = {
   siteName: document.querySelector('#site-name'),
   siteEndpoint: document.querySelector('#site-endpoint'),
   siteApiKey: document.querySelector('#site-api-key'),
+  toggleApiKey: document.querySelector('#toggle-api-key'),
+  apiKeyShowIcon: document.querySelector('.eye-icon-show'),
+  apiKeyHideIcon: document.querySelector('.eye-icon-hide'),
   saveSite: document.querySelector('#save-site'),
   cancelSiteEdit: document.querySelector('#cancel-site-edit'),
   siteMessage: document.querySelector('#site-message'),
@@ -106,8 +109,17 @@ function setSiteMessage(message, type = '') {
 function resetSiteForm() {
   multiSiteElements.siteForm.reset();
   multiSiteElements.editingSiteId.value = '';
+  setApiKeyVisibility(false);
   multiSiteElements.saveSite.textContent = '保存站点';
   multiSiteElements.cancelSiteEdit.hidden = true;
+}
+
+function setApiKeyVisibility(visible) {
+  multiSiteElements.siteApiKey.type = visible ? 'text' : 'password';
+  multiSiteElements.toggleApiKey.setAttribute('aria-label', visible ? '隐藏 API Key' : '显示 API Key');
+  multiSiteElements.toggleApiKey.setAttribute('aria-pressed', String(visible));
+  multiSiteElements.apiKeyShowIcon.hidden = visible;
+  multiSiteElements.apiKeyHideIcon.hidden = !visible;
 }
 
 function closeConfigDialog(confirmed) {
@@ -860,6 +872,11 @@ multiSiteElements.siteForm.addEventListener('submit', (event) => {
 multiSiteElements.cancelSiteEdit.addEventListener('click', () => {
   resetSiteForm();
   setSiteMessage('已取消编辑。');
+});
+
+multiSiteElements.toggleApiKey.addEventListener('click', () => {
+  setApiKeyVisibility(multiSiteElements.siteApiKey.type === 'password');
+  multiSiteElements.siteApiKey.focus();
 });
 
 multiSiteElements.selectAllSites.addEventListener('click', () => {
