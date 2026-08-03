@@ -221,17 +221,21 @@ pre { min-height: 120px; max-height: 360px; margin: 0; overflow: auto; padding: 
 .multi-site-result-table tr.row-running { background: rgba(244, 197, 91, 0.04); }
 .multi-site-result-table tr.row-error { background: rgba(255, 123, 123, 0.035); }
 .multi-site-result-table tr.row-stopped { opacity: 0.65; }
-.multi-site-result-table { min-width: 1270px; table-layout: fixed; }
+.multi-site-result-table { min-width: 1360px; table-layout: fixed; }
 .multi-site-result-table th, .multi-site-result-table td { padding-right: 7px; padding-left: 7px; }
-.multi-site-result-table th:nth-child(1) { width: 105px; }
-.multi-site-result-table th:nth-child(2) { width: 215px; }
-.multi-site-result-table th:nth-child(3), .multi-site-result-table th:nth-child(4) { width: 130px; }
-.multi-site-result-table th:nth-child(5) { width: 140px; }
-.multi-site-result-table th:nth-child(6) { width: 70px; }
-.multi-site-result-table th:nth-child(7) { width: 90px; }
-.multi-site-result-table th:nth-child(8) { width: 130px; }
-.multi-site-result-table th:nth-child(9) { width: 100px; }
-.multi-site-result-table th:nth-child(10) { width: 160px; }
+.multi-site-result-table th:nth-child(1) { width: 88px; }
+.multi-site-result-table th:nth-child(2) { width: 105px; }
+.multi-site-result-table th:nth-child(3) { width: 215px; }
+.multi-site-result-table th:nth-child(4), .multi-site-result-table th:nth-child(5) { width: 130px; }
+.multi-site-result-table th:nth-child(6) { width: 140px; }
+.multi-site-result-table th:nth-child(7) { width: 70px; }
+.multi-site-result-table th:nth-child(8) { width: 90px; }
+.multi-site-result-table th:nth-child(9) { width: 130px; }
+.multi-site-result-table th:nth-child(10) { width: 100px; }
+.multi-site-result-table th:nth-child(11) { width: 160px; }
+.single-row-test-button { min-height: 30px; padding: 0 9px; border: 1px solid rgba(105, 228, 181, 0.38); border-radius: 8px; outline: none; color: var(--accent); background: var(--accent-soft); font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.single-row-test-button:hover, .single-row-test-button:focus-visible { border-color: var(--accent); background: rgba(105, 228, 181, 0.2); }
+.single-row-test-button:disabled { cursor: not-allowed; opacity: 0.5; }
 .http-status-trigger { max-width: 100%; padding: 4px 6px; overflow: hidden; border: 1px solid transparent; border-radius: 7px; outline: none; background: transparent; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
 .http-status-trigger:hover, .http-status-trigger:focus-visible { border-color: currentColor; background: rgba(255, 255, 255, 0.04); }
 .http-status-success { color: var(--accent); }

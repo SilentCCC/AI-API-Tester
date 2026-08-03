@@ -48,6 +48,7 @@ let aggregatedSiteModels = [];
 let selectedSiteModels = new Set();
 let multiSiteController = null;
 let multiSiteRunning = false;
+let singleRowTestRunning = false;
 let siteModelsLoading = false;
 let httpTooltipHideTimer = null;
 let configDialogResolver = null;
@@ -425,7 +426,8 @@ function updateMultiSiteModelControls() {
   multiSiteElements.clearSiteModels.disabled = selectedModelCount === 0 || multiSiteRunning;
   multiSiteElements.startMultiSiteTest.disabled = selectedSiteIds.size === 0
     || selectedModelCount === 0
-    || multiSiteRunning;
+    || multiSiteRunning
+    || singleRowTestRunning;
 }
 
 function renderAggregatedModels(models) {
@@ -580,6 +582,7 @@ function normalizeMultiSiteError(error, task) {
 function createMultiSiteResultRow(task) {
   const row = document.createElement('tr');
   const cells = {
+    action: document.createElement('td'),
     site: document.createElement('td'),
     endpoint: document.createElement('td'),
     requested: document.createElement('td'),
@@ -591,6 +594,12 @@ function createMultiSiteResultRow(task) {
     content: document.createElement('td'),
     error: document.createElement('td')
   };
+  const singleTestButton = document.createElement('button');
+  singleTestButton.className = 'single-row-test-button';
+  singleTestButton.type = 'button';
+  singleTestButton.textContent = '单独测试';
+  singleTestButton.disabled = multiSiteRunning;
+  cells.action.append(singleTestButton);
   cells.site.textContent = task.site.name;
   cells.endpoint.textContent = task.site.endpoint;
   cells.endpoint.title = task.site.endpoint;
@@ -605,7 +614,9 @@ function createMultiSiteResultRow(task) {
   cells.error.textContent = '—';
   row.append(...Object.values(cells));
   multiSiteElements.multiSiteResultBody.append(row);
-  return { row, cells };
+  const rowState = { row, cells, task, singleTestButton, singleRunning: false };
+  singleTestButton.addEventListener('click', () => testSingleResultRow(rowState));
+  return rowState;
 }
 
 function setMultiSiteRowRunning(rowState) {
@@ -773,18 +784,71 @@ function renderMultiSiteResultRow(rowState, result) {
   else renderErrorContent(rowState.cells.error, result.message);
 }
 
+function updateSingleTestButtons() {
+  multiSiteElements.multiSiteResultBody.querySelectorAll('.single-row-test-button').forEach((button) => {
+    button.disabled = multiSiteRunning || singleRowTestRunning;
+  });
+}
+
+async function testSingleResultRow(rowState) {
+  if (multiSiteRunning || singleRowTestRunning) return;
+
+  const { task, singleTestButton } = rowState;
+  const controller = new AbortController();
+  singleRowTestRunning = true;
+  rowState.singleRunning = true;
+  singleTestButton.dataset.running = 'true';
+  singleTestButton.textContent = '测试中...';
+  updateMultiSiteModelControls();
+  updateSingleTestButtons();
+  setMultiSiteRowRunning(rowState);
+  rowState.cells.consistency.textContent = '检测中';
+  rowState.cells.returned.textContent = '—';
+  rowState.cells.time.textContent = '—';
+  rowState.cells.http.textContent = '—';
+  rowState.cells.content.textContent = '正在重新测试';
+  rowState.cells.error.textContent = '—';
+  multiSiteElements.multiSiteResultBadge.textContent = '单独测试中';
+  multiSiteElements.multiSiteResultBadge.className = 'badge badge-pending';
+  multiSiteElements.multiSiteProgress.textContent = `正在单独测试：${task.site.name} × ${task.model}`;
+
+  try {
+    const result = await multiSitePostJson('/api/test-model', {
+      endpoint: task.site.endpoint,
+      apiKey: task.site.apiKey,
+      model: task.model
+    }, controller.signal);
+    renderMultiSiteResultRow(rowState, result);
+    multiSiteElements.multiSiteResultBadge.textContent = result.success ? '单独测试完成' : '单独测试失败';
+    multiSiteElements.multiSiteResultBadge.className = `badge ${result.success ? 'badge-success' : 'badge-error'}`;
+  } catch (error) {
+    renderMultiSiteResultRow(rowState, normalizeMultiSiteError(error, task));
+    multiSiteElements.multiSiteResultBadge.textContent = '单独测试失败';
+    multiSiteElements.multiSiteResultBadge.className = 'badge badge-error';
+  } finally {
+    singleRowTestRunning = false;
+    rowState.singleRunning = false;
+    delete singleTestButton.dataset.running;
+    singleTestButton.textContent = '单独测试';
+    updateMultiSiteModelControls();
+    updateSingleTestButtons();
+    multiSiteElements.multiSiteProgress.textContent = `单独测试完成：${task.site.name} × ${task.model}`;
+  }
+}
+
 function setMultiSiteRunning(running) {
   multiSiteRunning = running;
   multiSiteElements.stopMultiSiteTest.disabled = !running;
   renderSites();
   renderAggregatedModels(getFilteredAggregatedModels());
   updateSiteControls();
+  updateSingleTestButtons();
 }
 
 async function startMultiSiteTest() {
   const sites = getSelectedSites();
   const models = [...selectedSiteModels];
-  if (!sites.length || !models.length || multiSiteRunning) return;
+  if (!sites.length || !models.length || multiSiteRunning || singleRowTestRunning) return;
 
   const tasks = SiteManager.buildSiteModelTasks(sites, models);
   multiSiteController = new AbortController();
