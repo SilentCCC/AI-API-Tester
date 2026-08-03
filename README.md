@@ -1,8 +1,10 @@
 # AI API Tester
 
-当前版本：`0.4.14`
+当前版本：`0.4.15`
 
 AI API Tester 是一个基于 Node.js、Express、HTML、CSS 和 JavaScript 的本地 Web 工具，用于测试 OpenAI Compatible API。
+
+获取到的模型列表、模型选择、最近一次检测结果和批量测试开始时间会保存在当前浏览器本地，刷新页面后自动恢复。
 
 ## 当前功能
 

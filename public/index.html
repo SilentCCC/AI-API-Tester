@@ -112,6 +112,7 @@
 
           <div class="batch-actions">
             <button id="start-multi-site-test" class="button button-primary" type="button" disabled>开始批量测试</button>
+            <span id="batch-started-at" class="batch-started-at">开始时间：尚未开始</span>
             <button id="stop-multi-site-test" class="button button-danger" type="button" disabled>停止测试</button>
             <span class="test-help">
               <button class="test-help-trigger" type="button" aria-label="查看测试说明" aria-describedby="test-help-tooltip">?</button>
@@ -182,6 +183,7 @@
 
     <script src="/batchRunner.js"></script>
     <script src="/siteManager.js"></script>
+    <script src="/testSessionStore.js"></script>
     <script src="/statusCodes.js"></script>
     <script src="/multiSiteApp.js" defer></script>
   </body>
