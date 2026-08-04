@@ -112,7 +112,6 @@
 
           <div class="batch-actions">
             <button id="start-multi-site-test" class="button button-primary" type="button" disabled>开始批量测试</button>
-            <span id="batch-started-at" class="batch-started-at">开始时间：尚未开始</span>
             <button id="stop-multi-site-test" class="button button-danger" type="button" disabled>停止测试</button>
             <span class="test-help">
               <button class="test-help-trigger" type="button" aria-label="查看测试说明" aria-describedby="test-help-tooltip">?</button>
@@ -135,7 +134,10 @@
             <p class="section-label">检测结果</p>
             <h2 id="multi-site-result-title">API 站点与模型测试记录</h2>
           </div>
-          <span id="multi-site-result-badge" class="badge badge-pending">等待测试</span>
+          <div class="result-heading-meta">
+            <span id="batch-started-at" class="batch-started-at">开始时间：尚未开始</span>
+            <span id="multi-site-result-badge" class="badge badge-pending">等待测试</span>
+          </div>
         </div>
 
         <div id="multi-site-result-empty" class="empty-state">选择一个或多个站点和模型后点击“开始批量测试”。</div>

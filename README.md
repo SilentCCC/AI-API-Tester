@@ -1,6 +1,6 @@
 # AI API Tester
 
-当前版本：`0.4.15`
+当前版本：`0.4.16`
 
 AI API Tester 是一个基于 Node.js、Express、HTML、CSS 和 JavaScript 的本地 Web 工具，用于测试 OpenAI Compatible API。
 
