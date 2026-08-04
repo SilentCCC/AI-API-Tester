@@ -183,6 +183,7 @@ input:disabled, select:disabled, button:disabled { cursor: not-allowed; opacity:
 .model-check-item span { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
 .list-empty { grid-column: 1 / -1; padding: 24px; color: var(--muted); text-align: center; }
 .batch-actions { margin-top: 16px; }
+.result-title-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .result-heading-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .batch-started-at { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .batch-progress { margin-left: auto; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }

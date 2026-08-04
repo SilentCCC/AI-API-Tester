@@ -109,7 +109,7 @@ router.get('/health', (request, response) => {
   response.json({
     success: true,
     service: 'AI API Tester',
-    version: '0.4.16'
+    version: '0.4.17'
   });
 });
 
