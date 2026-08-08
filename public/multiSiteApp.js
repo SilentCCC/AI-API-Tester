@@ -39,7 +39,10 @@ const multiSiteElements = {
   multiSiteResultBadge: document.querySelector('#multi-site-result-badge'),
   multiSiteResultEmpty: document.querySelector('#multi-site-result-empty'),
   multiSiteResultContent: document.querySelector('#multi-site-result-content'),
-  multiSiteResultBody: document.querySelector('#multi-site-result-body')
+  multiSiteResultBody: document.querySelector('#multi-site-result-body'),
+  toggleEndpoints: document.querySelector('#toggle-endpoints'),
+  endpointShowIcon: document.querySelector('#toggle-endpoints .eye-icon-show'),
+  endpointHideIcon: document.querySelector('#toggle-endpoints .eye-icon-hide')
 };
 
 const MULTI_SITE_CONCURRENCY = 3;
@@ -58,6 +61,8 @@ let siteModelsLoading = false;
 let httpTooltipHideTimer = null;
 let configDialogResolver = null;
 let draggedSiteId = null;
+let endpointsHidden = false;
+const endpointCellValues = new WeakMap();
 
 function formatBatchStartedAt(value) {
   if (!value) return '开始时间：尚未开始';
@@ -182,6 +187,24 @@ function setApiKeyVisibility(visible) {
   multiSiteElements.toggleApiKey.setAttribute('aria-pressed', String(visible));
   multiSiteElements.apiKeyShowIcon.hidden = visible;
   multiSiteElements.apiKeyHideIcon.hidden = !visible;
+}
+
+function renderEndpointCell(cell) {
+  const endpoint = endpointCellValues.get(cell) || '';
+  cell.textContent = endpointsHidden ? '••••••••' : endpoint;
+  cell.title = endpointsHidden ? '' : endpoint;
+  cell.setAttribute('aria-label', endpointsHidden ? '端点已隐藏' : endpoint);
+}
+
+function setEndpointVisibility(hidden) {
+  endpointsHidden = hidden;
+  const toggle = multiSiteElements.toggleEndpoints;
+  toggle.setAttribute('aria-label', hidden ? '显示所有端点' : '隐藏所有端点');
+  toggle.setAttribute('aria-pressed', String(hidden));
+  toggle.title = hidden ? '显示所有端点' : '隐藏所有端点';
+  multiSiteElements.endpointShowIcon.hidden = hidden;
+  multiSiteElements.endpointHideIcon.hidden = !hidden;
+  multiSiteElements.multiSiteResultBody.querySelectorAll('.endpoint-cell').forEach(renderEndpointCell);
 }
 
 function closeConfigDialog(confirmed) {
@@ -680,9 +703,9 @@ function createMultiSiteResultRow(task) {
   if (!task.site.apiKey) singleTestButton.title = '原站点已删除或配置不可用';
   cells.action.append(singleTestButton);
   cells.site.textContent = task.site.name;
-  cells.endpoint.textContent = task.site.endpoint;
-  cells.endpoint.title = task.site.endpoint;
   cells.endpoint.className = 'endpoint-cell';
+  endpointCellValues.set(cells.endpoint, task.site.endpoint);
+  renderEndpointCell(cells.endpoint);
   cells.requested.textContent = task.model;
   cells.returned.textContent = '—';
   cells.consistency.textContent = '等待测试';
@@ -1101,6 +1124,7 @@ document.addEventListener('keydown', (event) => {
 multiSiteElements.loadSiteModels.addEventListener('click', loadSelectedSiteModels);
 multiSiteElements.startMultiSiteTest.addEventListener('click', startMultiSiteTest);
 multiSiteElements.stopMultiSiteTest.addEventListener('click', stopMultiSiteTest);
+multiSiteElements.toggleEndpoints.addEventListener('click', () => setEndpointVisibility(!endpointsHidden));
 multiSiteElements.multiSiteModelSearch.addEventListener('input', () => {
   renderAggregatedModels(getFilteredAggregatedModels());
 });

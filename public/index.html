@@ -151,7 +151,21 @@
                 <tr>
                   <th>操作</th>
                   <th>站点名称</th>
-                  <th>端点</th>
+                  <th>
+                    <div class="endpoint-header">
+                      <span>端点</span>
+                      <button id="toggle-endpoints" class="endpoint-visibility" type="button" aria-label="隐藏所有端点" aria-pressed="false" title="隐藏所有端点">
+                        <svg class="eye-icon eye-icon-show" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M2.2 12s3.5-6 9.8-6 9.8 6 9.8 6-3.5 6-9.8 6-9.8-6-9.8-6Z"></path>
+                          <circle cx="12" cy="12" r="2.8"></circle>
+                        </svg>
+                        <svg class="eye-icon eye-icon-hide" viewBox="0 0 24 24" aria-hidden="true" hidden>
+                          <path d="M3 3l18 18"></path>
+                          <path d="M10.6 6.1A9.9 9.9 0 0 1 12 6c6.3 0 9.8 6 9.8 6a15.7 15.7 0 0 1-3.1 3.7M6.2 6.2C3.6 8 2.2 12 2.2 12s3.5 6 9.8 6c1 0 2-.2 2.8-.5M9.9 9.9a3 3 0 0 0 4.2 4.2"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </th>
                   <th>请求模型</th>
                   <th>返回模型</th>
                   <th>一致性</th>
