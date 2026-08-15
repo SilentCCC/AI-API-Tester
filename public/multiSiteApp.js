@@ -41,6 +41,23 @@ const multiSiteElements = {
   multiSiteResultEmpty: document.querySelector('#multi-site-result-empty'),
   multiSiteResultContent: document.querySelector('#multi-site-result-content'),
   multiSiteResultBody: document.querySelector('#multi-site-result-body'),
+  modeCombination: document.querySelector('#mode-combination'),
+  modeIndependent: document.querySelector('#mode-independent'),
+  combinationMode: document.querySelector('#combination-mode'),
+  independentMode: document.querySelector('#independent-mode'),
+  loadIndependentSiteModels: document.querySelector('#load-independent-site-models'),
+  selectAllIndependentModels: document.querySelector('#select-all-independent-models'),
+  clearIndependentModels: document.querySelector('#clear-independent-models'),
+  independentTestPrompt: document.querySelector('#independent-test-prompt'),
+  independentModelCount: document.querySelector('#independent-model-count'),
+  independentModelList: document.querySelector('#independent-model-list'),
+  startIndependentTest: document.querySelector('#start-independent-test'),
+  stopIndependentTest: document.querySelector('#stop-independent-test'),
+  independentProgress: document.querySelector('#independent-progress'),
+  independentResultBadge: document.querySelector('#independent-result-badge'),
+  independentResultEmpty: document.querySelector('#independent-result-empty'),
+  independentResultContent: document.querySelector('#independent-result-content'),
+  independentResultBody: document.querySelector('#independent-result-body'),
   toggleEndpoints: document.querySelector('#toggle-endpoints'),
   endpointShowIcon: document.querySelector('#toggle-endpoints .eye-icon-show'),
   endpointHideIcon: document.querySelector('#toggle-endpoints .eye-icon-hide')
@@ -54,9 +71,14 @@ let aggregatedSiteModels = restoredSession.aggregatedSiteModels;
 let selectedSiteModels = new Set(restoredSession.selectedSiteModels.filter((model) => aggregatedSiteModels.includes(model)));
 let siteModelSummaries = restoredSession.siteModelSummaries;
 let resultRecords = new Map(restoredSession.resultRecords.map((record) => [record.id, record]));
+let independentSelections = new Map(Object.entries(restoredSession.independentSelections)
+  .map(([siteId, models]) => [siteId, new Set(Array.isArray(models) ? models : [])]));
+let independentResultRecords = new Map(restoredSession.independentResultRecords.map((record) => [record.id, record]));
 let batchStartedAt = restoredSession.batchStartedAt;
 let multiSiteController = null;
 let multiSiteRunning = false;
+let independentController = null;
+let independentRunning = false;
 let singleRowTestRunning = false;
 let siteModelsLoading = false;
 let httpTooltipHideTimer = null;
@@ -68,6 +90,11 @@ const endpointCellValues = new WeakMap();
 function getTestPrompt() {
   const value = multiSiteElements.multiSiteTestPrompt.value;
   return value.trim() ? value : 'Hello';
+}
+
+function serializeIndependentSelections() {
+  return Object.fromEntries([...independentSelections.entries()]
+    .map(([siteId, models]) => [siteId, [...models]]));
 }
 
 function formatBatchStartedAt(value) {
@@ -87,7 +114,9 @@ function saveTestSession() {
     aggregatedSiteModels,
     selectedSiteModels: [...selectedSiteModels],
     siteModelSummaries,
+    independentSelections: serializeIndependentSelections(),
     resultRecords: [...resultRecords.values()],
+    independentResultRecords: [...independentResultRecords.values()],
     testPrompt: getTestPrompt(),
     batchStartedAt,
     progressText: multiSiteElements.multiSiteProgress.textContent,
@@ -104,7 +133,9 @@ function saveTestSession() {
       aggregatedSiteModels,
       selectedSiteModels: [...selectedSiteModels],
       siteModelSummaries,
+      independentSelections: serializeIndependentSelections(),
       resultRecords: compactRecords,
+      independentResultRecords: [...independentResultRecords.values()],
       testPrompt: getTestPrompt(),
       batchStartedAt,
       progressText: multiSiteElements.multiSiteProgress.textContent,
@@ -320,6 +351,7 @@ function invalidateAggregatedModels() {
   multiSiteElements.multiSiteModelSearch.disabled = true;
   multiSiteElements.siteModelLoadSummary.hidden = true;
   renderAggregatedModels([]);
+  renderIndependentModels();
   saveTestSession();
 }
 
@@ -327,7 +359,7 @@ function updateSiteControls() {
   const siteCount = apiSites.length;
   const selectedCount = selectedSiteIds.size;
   multiSiteElements.selectedSiteCount.textContent = selectedCount;
-  const siteControlsLocked = multiSiteRunning || siteModelsLoading;
+  const siteControlsLocked = multiSiteRunning || independentRunning || siteModelsLoading;
   multiSiteElements.selectAllSites.disabled = siteCount === 0 || siteControlsLocked;
   multiSiteElements.clearSites.disabled = selectedCount === 0 || siteControlsLocked;
   multiSiteElements.loadSiteModels.disabled = selectedCount === 0 || siteControlsLocked;
@@ -381,7 +413,7 @@ function renderSites() {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = selectedSiteIds.has(site.id);
-    checkbox.disabled = multiSiteRunning || siteModelsLoading;
+    checkbox.disabled = multiSiteRunning || independentRunning || siteModelsLoading;
     checkbox.addEventListener('change', () => {
       if (checkbox.checked) selectedSiteIds.add(site.id);
       else selectedSiteIds.delete(site.id);
@@ -412,8 +444,8 @@ function renderSites() {
     dragHandle.textContent = '⠿';
     dragHandle.title = '拖动调整站点顺序';
     dragHandle.setAttribute('aria-label', `拖动 ${site.name} 调整顺序`);
-    dragHandle.draggable = !(multiSiteRunning || siteModelsLoading);
-    dragHandle.disabled = multiSiteRunning || siteModelsLoading;
+    dragHandle.draggable = !(multiSiteRunning || independentRunning || siteModelsLoading);
+    dragHandle.disabled = multiSiteRunning || independentRunning || siteModelsLoading;
     dragHandle.addEventListener('dragstart', (event) => {
       draggedSiteId = site.id;
       clearSiteDragState();
@@ -428,7 +460,7 @@ function renderSites() {
     moveLeftButton.textContent = '←';
     moveLeftButton.title = '向前移动一位';
     moveLeftButton.setAttribute('aria-label', `${site.name} 向前移动一位`);
-    moveLeftButton.disabled = siteIndex === 0 || multiSiteRunning || siteModelsLoading;
+    moveLeftButton.disabled = siteIndex === 0 || multiSiteRunning || independentRunning || siteModelsLoading;
     moveLeftButton.addEventListener('click', () => moveSiteCard(site.id, -1));
     const moveRightButton = document.createElement('button');
     moveRightButton.className = 'site-order-button';
@@ -436,7 +468,7 @@ function renderSites() {
     moveRightButton.textContent = '→';
     moveRightButton.title = '向后移动一位';
     moveRightButton.setAttribute('aria-label', `${site.name} 向后移动一位`);
-    moveRightButton.disabled = siteIndex === apiSites.length - 1 || multiSiteRunning || siteModelsLoading;
+    moveRightButton.disabled = siteIndex === apiSites.length - 1 || multiSiteRunning || independentRunning || siteModelsLoading;
     moveRightButton.addEventListener('click', () => moveSiteCard(site.id, 1));
     orderActions.append(dragHandle, moveLeftButton, moveRightButton);
 
@@ -470,13 +502,13 @@ function renderSites() {
     editButton.className = 'button button-secondary button-small';
     editButton.type = 'button';
     editButton.textContent = '编辑';
-    editButton.disabled = multiSiteRunning || siteModelsLoading;
+    editButton.disabled = multiSiteRunning || independentRunning || siteModelsLoading;
     editButton.addEventListener('click', () => editSite(site));
     const deleteButton = document.createElement('button');
     deleteButton.className = 'button button-danger button-small';
     deleteButton.type = 'button';
     deleteButton.textContent = '删除';
-    deleteButton.disabled = multiSiteRunning || siteModelsLoading;
+    deleteButton.disabled = multiSiteRunning || independentRunning || siteModelsLoading;
     deleteButton.addEventListener('click', () => deleteSite(site.id));
     actions.append(orderActions, editButton, deleteButton);
 
@@ -518,11 +550,12 @@ function deleteSite(siteId) {
 function updateMultiSiteModelControls() {
   const selectedModelCount = selectedSiteModels.size;
   multiSiteElements.multiSiteModelCount.textContent = selectedModelCount;
-  multiSiteElements.selectAllSiteModels.disabled = aggregatedSiteModels.length === 0 || multiSiteRunning;
-  multiSiteElements.clearSiteModels.disabled = selectedModelCount === 0 || multiSiteRunning;
+  multiSiteElements.selectAllSiteModels.disabled = aggregatedSiteModels.length === 0 || multiSiteRunning || independentRunning;
+  multiSiteElements.clearSiteModels.disabled = selectedModelCount === 0 || multiSiteRunning || independentRunning;
   multiSiteElements.startMultiSiteTest.disabled = selectedSiteIds.size === 0
     || selectedModelCount === 0
     || multiSiteRunning
+    || independentRunning
     || singleRowTestRunning;
 }
 
@@ -546,7 +579,7 @@ function renderAggregatedModels(models) {
     checkbox.type = 'checkbox';
     checkbox.value = model;
     checkbox.checked = selectedSiteModels.has(model);
-    checkbox.disabled = multiSiteRunning;
+    checkbox.disabled = multiSiteRunning || independentRunning;
     checkbox.addEventListener('change', () => {
       if (checkbox.checked) selectedSiteModels.add(model);
       else selectedSiteModels.delete(model);
@@ -565,7 +598,7 @@ function renderAggregatedModels(models) {
 
 async function loadSelectedSiteModels() {
   const sites = getSelectedSites();
-  if (!sites.length || multiSiteRunning) return;
+  if (!sites.length || multiSiteRunning || independentRunning) return;
 
   siteModelsLoading = true;
   renderSites();
@@ -586,11 +619,12 @@ async function loadSelectedSiteModels() {
     onItemFinish(error, result, site) {
       completed += 1;
       if (error) {
-        summaries.push({ success: false, site: site.name, message: error.message });
+        summaries.push({ success: false, siteId: site.id, site: site.name, message: error.message });
       } else {
         result.models.forEach((model) => modelSet.add(model));
         summaries.push({
           success: true,
+          siteId: site.id,
           site: site.name,
           count: result.count,
           models: result.models
@@ -618,6 +652,7 @@ async function loadSelectedSiteModels() {
   siteModelsLoading = false;
   renderSites();
   updateSiteControls();
+  renderIndependentModels();
   saveTestSession();
 }
 
@@ -671,6 +706,86 @@ function createSiteModelSummary(summary) {
   return wrapper;
 }
 
+function findSummarySite(summary) {
+  return apiSites.find((site) => site.id === summary.siteId)
+    || apiSites.find((site) => site.name === summary.site);
+}
+
+function getIndependentSummaries() {
+  const selectedIds = new Set(selectedSiteIds);
+  return siteModelSummaries.filter((summary) => summary.success && findSummarySite(summary)?.id && selectedIds.has(findSummarySite(summary).id));
+}
+
+function updateIndependentControls() {
+  const summaries = getIndependentSummaries();
+  const selectedCount = summaries.reduce((total, summary) => {
+    const site = findSummarySite(summary);
+    return total + (site ? (independentSelections.get(site.id)?.size || 0) : 0);
+  }, 0);
+  const locked = multiSiteRunning || independentRunning || siteModelsLoading;
+  multiSiteElements.independentModelCount.textContent = selectedCount;
+  multiSiteElements.loadIndependentSiteModels.disabled = selectedSiteIds.size === 0 || locked;
+  multiSiteElements.selectAllIndependentModels.disabled = summaries.length === 0 || locked;
+  multiSiteElements.clearIndependentModels.disabled = selectedCount === 0 || locked;
+  multiSiteElements.startIndependentTest.disabled = selectedCount === 0 || locked;
+  multiSiteElements.stopIndependentTest.disabled = !independentRunning;
+}
+
+function renderIndependentModels() {
+  multiSiteElements.independentModelList.replaceChildren();
+  const summaries = getIndependentSummaries();
+  if (!summaries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'list-empty';
+    empty.textContent = siteModelSummaries.length ? '当前选中的站点还没有获取到模型。' : '请先选择站点并获取模型。';
+    multiSiteElements.independentModelList.append(empty);
+    updateIndependentControls();
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const summary of summaries) {
+    const site = findSummarySite(summary);
+    if (!site) continue;
+    const card = document.createElement('section');
+    card.className = 'independent-site-model-card';
+    const heading = document.createElement('div');
+    heading.className = 'independent-site-model-heading';
+    const name = document.createElement('strong');
+    name.textContent = site.name;
+    const count = document.createElement('span');
+    count.textContent = `${summary.models.length} 个模型`;
+    heading.append(name, count);
+    const modelList = document.createElement('div');
+    modelList.className = 'independent-site-model-options';
+    const selectedModels = independentSelections.get(site.id) || new Set();
+    independentSelections.set(site.id, selectedModels);
+
+    for (const model of summary.models) {
+      const label = document.createElement('label');
+      label.className = 'model-check-item';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = selectedModels.has(model);
+      checkbox.disabled = multiSiteRunning || independentRunning || siteModelsLoading;
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) selectedModels.add(model);
+        else selectedModels.delete(model);
+        updateIndependentControls();
+        saveTestSession();
+      });
+      const modelName = document.createElement('span');
+      modelName.textContent = model;
+      label.append(checkbox, modelName);
+      modelList.append(label);
+    }
+    card.append(heading, modelList);
+    fragment.append(card);
+  }
+  multiSiteElements.independentModelList.append(fragment);
+  updateIndependentControls();
+}
+
 function normalizeMultiSiteError(error, task) {
   return {
     success: false,
@@ -688,10 +803,11 @@ function normalizeMultiSiteError(error, task) {
   };
 }
 
-function createMultiSiteResultRow(task) {
+function createMultiSiteResultRow(task, targetElements = multiSiteElements, includeAction = true) {
   const row = document.createElement('tr');
-  const cells = {
-    action: document.createElement('td'),
+  const cells = {};
+  if (includeAction) cells.action = document.createElement('td');
+  Object.assign(cells, {
     site: document.createElement('td'),
     endpoint: document.createElement('td'),
     requested: document.createElement('td'),
@@ -702,15 +818,18 @@ function createMultiSiteResultRow(task) {
     http: document.createElement('td'),
     content: document.createElement('td'),
     error: document.createElement('td')
-  };
-  const singleTestButton = document.createElement('button');
-  singleTestButton.className = 'single-row-test-button';
-  singleTestButton.type = 'button';
-  singleTestButton.textContent = '单独测试';
-  singleTestButton.dataset.available = String(Boolean(task.site.apiKey));
-  singleTestButton.disabled = multiSiteRunning || !task.site.apiKey;
-  if (!task.site.apiKey) singleTestButton.title = '原站点已删除或配置不可用';
-  cells.action.append(singleTestButton);
+  });
+  let singleTestButton = null;
+  if (includeAction) {
+    singleTestButton = document.createElement('button');
+    singleTestButton.className = 'single-row-test-button';
+    singleTestButton.type = 'button';
+    singleTestButton.textContent = '单独测试';
+    singleTestButton.dataset.available = String(Boolean(task.site.apiKey));
+    singleTestButton.disabled = multiSiteRunning || !task.site.apiKey;
+    if (!task.site.apiKey) singleTestButton.title = '原站点已删除或配置不可用';
+    cells.action.append(singleTestButton);
+  }
   cells.site.textContent = task.site.name;
   cells.endpoint.className = 'endpoint-cell';
   endpointCellValues.set(cells.endpoint, task.site.endpoint);
@@ -724,9 +843,9 @@ function createMultiSiteResultRow(task) {
   cells.content.textContent = '等待测试';
   cells.error.textContent = '—';
   row.append(...Object.values(cells));
-  multiSiteElements.multiSiteResultBody.append(row);
+  targetElements.multiSiteResultBody.append(row);
   const rowState = { row, cells, task, singleTestButton, singleRunning: false };
-  singleTestButton.addEventListener('click', () => testSingleResultRow(rowState));
+  singleTestButton?.addEventListener('click', () => testSingleResultRow(rowState));
   return rowState;
 }
 
@@ -922,14 +1041,45 @@ function restoreResultRecords() {
   }
 }
 
+function getIndependentResultTarget() {
+  return { multiSiteResultBody: multiSiteElements.independentResultBody };
+}
+
+function restoreIndependentResultRecords() {
+  if (!independentResultRecords.size) return;
+
+  multiSiteElements.independentResultEmpty.hidden = true;
+  multiSiteElements.independentResultContent.hidden = false;
+  multiSiteElements.independentResultBody.replaceChildren();
+
+  for (const record of independentResultRecords.values()) {
+    const savedTask = record.task || {};
+    const currentSite = apiSites.find((site) => site.id === savedTask.siteId);
+    const task = {
+      id: record.id,
+      site: currentSite || {
+        id: savedTask.siteId,
+        name: savedTask.siteName || '未知站点',
+        endpoint: savedTask.endpoint || '未知',
+        apiKey: ''
+      },
+      model: savedTask.model || '未知',
+      prompt: savedTask.prompt || restoredSession.testPrompt || 'Hello'
+    };
+    const rowState = createMultiSiteResultRow(task, getIndependentResultTarget(), false);
+    if (record.state === 'stopped' || !record.result) setMultiSiteRowStopped(rowState);
+    else renderMultiSiteResultRow(rowState, record.result);
+  }
+}
+
 function updateSingleTestButtons() {
   multiSiteElements.multiSiteResultBody.querySelectorAll('.single-row-test-button').forEach((button) => {
-    button.disabled = multiSiteRunning || singleRowTestRunning || button.dataset.available !== 'true';
+    button.disabled = multiSiteRunning || independentRunning || singleRowTestRunning || button.dataset.available !== 'true';
   });
 }
 
 async function testSingleResultRow(rowState) {
-  if (multiSiteRunning || singleRowTestRunning || !rowState.task.site.apiKey) return;
+  if (multiSiteRunning || independentRunning || singleRowTestRunning || !rowState.task.site.apiKey) return;
 
   const { task, singleTestButton } = rowState;
   task.prompt = getTestPrompt();
@@ -987,12 +1137,13 @@ function setMultiSiteRunning(running) {
   renderAggregatedModels(getFilteredAggregatedModels());
   updateSiteControls();
   updateSingleTestButtons();
+  updateIndependentControls();
 }
 
 async function startMultiSiteTest() {
   const sites = getSelectedSites();
   const models = [...selectedSiteModels];
-  if (!sites.length || !models.length || multiSiteRunning || singleRowTestRunning) return;
+  if (!sites.length || !models.length || multiSiteRunning || independentRunning || singleRowTestRunning) return;
 
   const prompt = getTestPrompt();
   const tasks = SiteManager.buildSiteModelTasks(sites, models)
@@ -1062,11 +1213,120 @@ async function startMultiSiteTest() {
   saveTestSession();
 }
 
+function getIndependentTasks(prompt) {
+  const tasks = [];
+  for (const summary of getIndependentSummaries()) {
+    const site = findSummarySite(summary);
+    const selectedModels = independentSelections.get(site.id) || new Set();
+    for (const model of summary.models) {
+      if (selectedModels.has(model)) {
+        tasks.push({
+          id: `independent:${site.id}::${model}`,
+          site,
+          model,
+          prompt
+        });
+      }
+    }
+  }
+  return tasks;
+}
+
+function setIndependentRunning(running) {
+  independentRunning = running;
+  renderSites();
+  renderIndependentModels();
+  updateSiteControls();
+  updateMultiSiteModelControls();
+}
+
+async function startIndependentTest() {
+  if (multiSiteRunning || independentRunning || siteModelsLoading) return;
+  const prompt = multiSiteElements.independentTestPrompt.value.trim()
+    ? multiSiteElements.independentTestPrompt.value
+    : 'Hello';
+  multiSiteElements.multiSiteTestPrompt.value = prompt;
+  const tasks = getIndependentTasks(prompt);
+  if (!tasks.length) return;
+
+  independentController = new AbortController();
+  setIndependentRunning(true);
+  multiSiteElements.independentResultEmpty.hidden = true;
+  multiSiteElements.independentResultContent.hidden = false;
+  multiSiteElements.independentResultBody.replaceChildren();
+  multiSiteElements.independentResultBadge.textContent = '测试中';
+  multiSiteElements.independentResultBadge.className = 'badge badge-pending';
+  independentResultRecords = new Map(tasks.map((task) => [task.id, createResultRecord(task, 'pending')]));
+  multiSiteElements.independentProgress.textContent = `正在测试 0/${tasks.length}`;
+  saveTestSession();
+  const rows = new Map(tasks.map((task) => [
+    task.id,
+    createMultiSiteResultRow(task, getIndependentResultTarget(), false)
+  ]));
+  let started = 0;
+  let completed = 0;
+
+  await BatchRunner.runWithConcurrency(tasks, async (task) => {
+    return multiSitePostJson('/api/test-model', {
+      endpoint: task.site.endpoint,
+      apiKey: task.site.apiKey,
+      model: task.model,
+      prompt: task.prompt
+    }, independentController.signal);
+  }, {
+    concurrency: MULTI_SITE_CONCURRENCY,
+    signal: independentController.signal,
+    onItemStart(task) {
+      started += 1;
+      independentResultRecords.set(task.id, createResultRecord(task, 'running'));
+      setMultiSiteRowRunning(rows.get(task.id));
+      multiSiteElements.independentProgress.textContent = `正在测试 ${started}/${tasks.length}（已完成 ${completed}）`;
+      saveTestSession();
+    },
+    onItemFinish(error, result, task) {
+      if (error?.name === 'AbortError') {
+        independentResultRecords.set(task.id, createResultRecord(task, 'stopped'));
+        setMultiSiteRowStopped(rows.get(task.id));
+        return;
+      }
+      const normalizedResult = error ? normalizeMultiSiteError(error, task) : result;
+      independentResultRecords.set(task.id, createResultRecord(task, 'complete', normalizedResult));
+      renderMultiSiteResultRow(rows.get(task.id), normalizedResult);
+      completed += 1;
+      multiSiteElements.independentProgress.textContent = `正在测试 ${started}/${tasks.length}（已完成 ${completed}）`;
+      saveTestSession();
+    }
+  });
+
+  const stopped = independentController.signal.aborted;
+  for (const rowState of rows.values()) {
+    if (!rowState.row.className) {
+      independentResultRecords.set(rowState.task.id, createResultRecord(rowState.task, 'stopped'));
+      setMultiSiteRowStopped(rowState);
+    }
+  }
+  multiSiteElements.independentProgress.textContent = stopped
+    ? `测试已停止，完成 ${completed}/${tasks.length}`
+    : `测试完成 ${completed}/${tasks.length}`;
+  multiSiteElements.independentResultBadge.textContent = stopped ? '已停止' : '测试完成';
+  multiSiteElements.independentResultBadge.className = `badge ${stopped ? 'badge-warning' : 'badge-success'}`;
+  independentController = null;
+  setIndependentRunning(false);
+  saveTestSession();
+}
+
 function stopMultiSiteTest() {
   if (!multiSiteController || multiSiteController.signal.aborted) return;
   multiSiteElements.stopMultiSiteTest.disabled = true;
   multiSiteElements.multiSiteProgress.textContent = '正在停止测试...';
   multiSiteController.abort();
+}
+
+function stopIndependentTest() {
+  if (!independentController || independentController.signal.aborted) return;
+  multiSiteElements.stopIndependentTest.disabled = true;
+  multiSiteElements.independentProgress.textContent = '正在停止测试...';
+  independentController.abort();
 }
 
 multiSiteElements.siteForm.addEventListener('submit', (event) => {
@@ -1137,14 +1397,25 @@ document.addEventListener('keydown', (event) => {
 });
 
 multiSiteElements.loadSiteModels.addEventListener('click', loadSelectedSiteModels);
+multiSiteElements.loadIndependentSiteModels.addEventListener('click', loadSelectedSiteModels);
 multiSiteElements.startMultiSiteTest.addEventListener('click', startMultiSiteTest);
 multiSiteElements.stopMultiSiteTest.addEventListener('click', stopMultiSiteTest);
+multiSiteElements.startIndependentTest.addEventListener('click', startIndependentTest);
+multiSiteElements.stopIndependentTest.addEventListener('click', stopIndependentTest);
 multiSiteElements.toggleEndpoints.addEventListener('click', () => setEndpointVisibility(!endpointsHidden));
 multiSiteElements.multiSiteModelSearch.addEventListener('input', () => {
   renderAggregatedModels(getFilteredAggregatedModels());
 });
 multiSiteElements.multiSiteTestPrompt.value = restoredSession.testPrompt;
-multiSiteElements.multiSiteTestPrompt.addEventListener('input', saveTestSession);
+multiSiteElements.independentTestPrompt.value = restoredSession.testPrompt;
+multiSiteElements.multiSiteTestPrompt.addEventListener('input', () => {
+  multiSiteElements.independentTestPrompt.value = multiSiteElements.multiSiteTestPrompt.value;
+  saveTestSession();
+});
+multiSiteElements.independentTestPrompt.addEventListener('input', () => {
+  multiSiteElements.multiSiteTestPrompt.value = multiSiteElements.independentTestPrompt.value;
+  saveTestSession();
+});
 multiSiteElements.selectAllSiteModels.addEventListener('click', () => {
   selectedSiteModels = new Set(aggregatedSiteModels);
   renderAggregatedModels(getFilteredAggregatedModels());
@@ -1156,11 +1427,40 @@ multiSiteElements.clearSiteModels.addEventListener('click', () => {
   saveTestSession();
 });
 
+multiSiteElements.selectAllIndependentModels.addEventListener('click', () => {
+  for (const summary of getIndependentSummaries()) {
+    const site = findSummarySite(summary);
+    independentSelections.set(site.id, new Set(summary.models));
+  }
+  renderIndependentModels();
+  saveTestSession();
+});
+multiSiteElements.clearIndependentModels.addEventListener('click', () => {
+  for (const siteId of independentSelections.keys()) independentSelections.set(siteId, new Set());
+  renderIndependentModels();
+  saveTestSession();
+});
+
+function setTestMode(mode) {
+  const independent = mode === 'independent';
+  multiSiteElements.combinationMode.hidden = independent;
+  multiSiteElements.independentMode.hidden = !independent;
+  multiSiteElements.modeCombination.classList.toggle('is-active', !independent);
+  multiSiteElements.modeIndependent.classList.toggle('is-active', independent);
+  multiSiteElements.modeCombination.setAttribute('aria-pressed', String(!independent));
+  multiSiteElements.modeIndependent.setAttribute('aria-pressed', String(independent));
+}
+
+multiSiteElements.modeCombination.addEventListener('click', () => setTestMode('combination'));
+multiSiteElements.modeIndependent.addEventListener('click', () => setTestMode('independent'));
+
 renderSites();
 multiSiteElements.multiSiteModelSearch.disabled = aggregatedSiteModels.length === 0;
 renderAggregatedModels(getFilteredAggregatedModels());
 renderSiteModelSummaries();
+renderIndependentModels();
 restoreResultRecords();
+restoreIndependentResultRecords();
 updateBatchStartedAt();
 multiSiteElements.multiSiteProgress.textContent = restoredSession.progressText;
 multiSiteElements.multiSiteResultBadge.textContent = restoredSession.badgeText;

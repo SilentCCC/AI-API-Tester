@@ -78,6 +78,15 @@
         </div>
       </section>
 
+      <div class="testing-layout">
+        <aside class="mode-sidebar" aria-label="测试模式">
+          <p class="mode-sidebar-label">测试模式</p>
+          <button id="mode-combination" class="mode-nav-button is-active" type="button" aria-pressed="true">组合测试</button>
+          <button id="mode-independent" class="mode-nav-button" type="button" aria-pressed="false">独立测试</button>
+        </aside>
+
+        <div class="test-mode-content">
+          <div id="combination-mode" class="test-mode-view">
       <section class="panel" aria-labelledby="multi-site-test-title">
         <div class="panel-heading">
           <div>
@@ -185,6 +194,78 @@
           </div>
         </div>
       </section>
+          </div>
+
+          <div id="independent-mode" class="test-mode-view independent-mode" hidden>
+            <section class="panel" aria-labelledby="independent-test-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="section-label">独立测试</p>
+                  <h2 id="independent-test-title">按站点选择模型</h2>
+                </div>
+                <span class="muted">每个站点单独选择模型</span>
+              </div>
+              <div class="multi-site-workspace">
+                <div class="mode-heading batch-toolbar">
+                  <div>
+                    <h3>站点模型选择</h3>
+                    <p>为每个 API 站点选择要测试的模型，当前选择 <strong id="independent-model-count">0</strong> 个组合。</p>
+                  </div>
+                  <div class="selection-actions">
+                    <button id="load-independent-site-models" class="button button-primary button-small" type="button" disabled>获取所选站点模型</button>
+                    <button id="select-all-independent-models" class="button button-secondary button-small" type="button" disabled>全选模型</button>
+                    <button id="clear-independent-models" class="button button-secondary button-small" type="button" disabled>清空选择</button>
+                  </div>
+                </div>
+                <label class="field test-prompt-field">
+                  <span>测试内容</span>
+                  <textarea id="independent-test-prompt" rows="3" placeholder="输入发送给模型的内容">Hello</textarea>
+                </label>
+                <div id="independent-model-list" class="independent-model-list" aria-label="独立测试模型选择列表">
+                  <div class="list-empty">请先选择站点并获取模型。</div>
+                </div>
+                <div class="batch-actions">
+                  <button id="start-independent-test" class="button button-primary" type="button" disabled>开始独立测试</button>
+                  <button id="stop-independent-test" class="button button-danger" type="button" disabled>停止测试</button>
+                  <span id="independent-progress" class="batch-progress" role="status">等待测试</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel result-panel" aria-labelledby="independent-result-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="section-label">独立测试结果</p>
+                  <h2 id="independent-result-title">站点独立测试记录</h2>
+                </div>
+                <span id="independent-result-badge" class="badge badge-pending">等待测试</span>
+              </div>
+              <div id="independent-result-empty" class="empty-state">为站点选择模型后点击“开始独立测试”。</div>
+              <div id="independent-result-content" class="batch-result-content" hidden>
+                <div class="table-wrap batch-table-wrap">
+                  <table class="multi-site-result-table">
+                    <thead>
+                      <tr>
+                        <th>站点名称</th>
+                        <th>端点</th>
+                        <th>请求模型</th>
+                        <th>返回模型</th>
+                        <th>一致性</th>
+                        <th>状态</th>
+                        <th>响应时间</th>
+                        <th>HTTP</th>
+                        <th>返回信息</th>
+                        <th>错误信息</th>
+                      </tr>
+                    </thead>
+                    <tbody id="independent-result-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
     </main>
 
     <input id="config-import-file" type="file" accept="application/json,.json" hidden>

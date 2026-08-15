@@ -5,7 +5,9 @@
     aggregatedSiteModels: [],
     selectedSiteModels: [],
     siteModelSummaries: [],
+    independentSelections: {},
     resultRecords: [],
+    independentResultRecords: [],
     testPrompt: 'Hello',
     batchStartedAt: null,
     progressText: '等待测试',
@@ -26,7 +28,11 @@
       aggregatedSiteModels: stringArray(state.aggregatedSiteModels),
       selectedSiteModels: stringArray(state.selectedSiteModels),
       siteModelSummaries: Array.isArray(state.siteModelSummaries) ? state.siteModelSummaries : [],
+      independentSelections: state.independentSelections && typeof state.independentSelections === 'object' && !Array.isArray(state.independentSelections)
+        ? state.independentSelections
+        : {},
       resultRecords: Array.isArray(state.resultRecords) ? state.resultRecords : [],
+      independentResultRecords: Array.isArray(state.independentResultRecords) ? state.independentResultRecords : [],
       testPrompt: typeof state.testPrompt === 'string' && state.testPrompt.trim() ? state.testPrompt : EMPTY_STATE.testPrompt,
       batchStartedAt: typeof state.batchStartedAt === 'string' ? state.batchStartedAt : null,
       progressText: typeof state.progressText === 'string' ? state.progressText : EMPTY_STATE.progressText,
