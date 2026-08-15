@@ -109,7 +109,7 @@ router.get('/health', (request, response) => {
   response.json({
     success: true,
     service: 'AI API Tester',
-    version: '0.4.17'
+    version: '0.4.18'
   });
 });
 
@@ -158,6 +158,10 @@ router.post('/test-model', async (request, response) => {
     return;
   }
 
+  const testPrompt = typeof request.body.prompt === 'string' && request.body.prompt.trim()
+    ? request.body.prompt
+    : 'Hello';
+
   const startedAt = performance.now();
   const clientController = new AbortController();
   const abortOnDisconnect = () => {
@@ -176,7 +180,7 @@ router.post('/test-model', async (request, response) => {
       },
       body: JSON.stringify({
         model: requestedModel,
-        messages: [{ role: 'user', content: 'Hello' }],
+        messages: [{ role: 'user', content: testPrompt }],
         temperature: 0
       })
     }, clientController.signal);

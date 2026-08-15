@@ -95,7 +95,7 @@ h3 { margin-bottom: 10px; font-size: 14px; }
 .field small { color: var(--muted); font-weight: 400; line-height: 1.5; }
 code { color: var(--accent); }
 
-input, select {
+input, select, textarea {
   width: 100%;
   min-height: 46px;
   border: 1px solid var(--border);
@@ -106,7 +106,9 @@ input, select {
   padding: 0 13px;
 }
 
-input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+textarea { min-height: 82px; padding: 11px 13px; resize: vertical; line-height: 1.55; }
+
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 input:disabled, select:disabled, button:disabled { cursor: not-allowed; opacity: 0.55; }
 .api-key-input-wrap { position: relative; display: block; }
 .api-key-input-wrap input { padding-right: 48px; }
@@ -158,6 +160,7 @@ input:disabled, select:disabled, button:disabled { cursor: not-allowed; opacity:
 
 .multi-site-workspace { padding: 26px; }
 .site-model-search-field { max-width: 520px; margin-bottom: 16px; }
+.test-prompt-field { max-width: 760px; margin-bottom: 16px; }
 .site-model-load-summary { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; padding: 13px 15px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); font-size: 12px; line-height: 1.55; }
 .load-success { color: var(--accent); }
 .load-error { color: var(--danger); }

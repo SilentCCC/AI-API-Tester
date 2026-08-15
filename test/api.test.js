@@ -70,16 +70,24 @@ test('模型列表去重，聊天测试发送 temperature 0 并返回一致性�
     const testResponse = await fetch(`http://127.0.0.1:${localPort}/api/test-model`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...credentials, model: 'gpt-5.6' })
+      body: JSON.stringify({ ...credentials, model: 'gpt-5.6', prompt: 'custom ping' })
     });
     const result = await testResponse.json();
 
     assert.equal(testResponse.status, 200);
     assert.equal(receivedBody.temperature, 0);
-    assert.deepEqual(receivedBody.messages, [{ role: 'user', content: 'Hello' }]);
+    assert.deepEqual(receivedBody.messages, [{ role: 'user', content: 'custom ping' }]);
     assert.equal(result.returnedModel, 'gpt-5.6-turbo');
     assert.equal(result.consistency.level, 'mapping');
     assert.equal(result.content, 'Hello!');
+
+    const defaultPromptResponse = await fetch(`http://127.0.0.1:${localPort}/api/test-model`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...credentials, model: 'gpt-5.6' })
+    });
+    await defaultPromptResponse.json();
+    assert.deepEqual(receivedBody.messages, [{ role: 'user', content: 'Hello' }]);
   } finally {
     await Promise.all([close(local), close(upstream)]);
   }

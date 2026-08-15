@@ -30,6 +30,7 @@ const multiSiteElements = {
   clearSiteModels: document.querySelector('#clear-site-models'),
   multiSiteModelCount: document.querySelector('#multi-site-model-count'),
   multiSiteModelSearch: document.querySelector('#multi-site-model-search'),
+  multiSiteTestPrompt: document.querySelector('#multi-site-test-prompt'),
   multiSiteModelList: document.querySelector('#multi-site-model-list'),
   siteModelLoadSummary: document.querySelector('#site-model-load-summary'),
   startMultiSiteTest: document.querySelector('#start-multi-site-test'),
@@ -64,6 +65,11 @@ let draggedSiteId = null;
 let endpointsHidden = false;
 const endpointCellValues = new WeakMap();
 
+function getTestPrompt() {
+  const value = multiSiteElements.multiSiteTestPrompt.value;
+  return value.trim() ? value : 'Hello';
+}
+
 function formatBatchStartedAt(value) {
   if (!value) return '开始时间：尚未开始';
   const date = new Date(value);
@@ -82,6 +88,7 @@ function saveTestSession() {
     selectedSiteModels: [...selectedSiteModels],
     siteModelSummaries,
     resultRecords: [...resultRecords.values()],
+    testPrompt: getTestPrompt(),
     batchStartedAt,
     progressText: multiSiteElements.multiSiteProgress.textContent,
     badgeText: multiSiteElements.multiSiteResultBadge.textContent,
@@ -98,6 +105,7 @@ function saveTestSession() {
       selectedSiteModels: [...selectedSiteModels],
       siteModelSummaries,
       resultRecords: compactRecords,
+      testPrompt: getTestPrompt(),
       batchStartedAt,
       progressText: multiSiteElements.multiSiteProgress.textContent,
       badgeText: multiSiteElements.multiSiteResultBadge.textContent,
@@ -113,7 +121,8 @@ function createResultRecord(task, state, result = null) {
       siteId: task.site.id,
       siteName: task.site.name,
       endpoint: task.site.endpoint,
-      model: task.model
+      model: task.model,
+      prompt: task.prompt || 'Hello'
     },
     state,
     result
@@ -904,7 +913,8 @@ function restoreResultRecords() {
         endpoint: savedTask.endpoint || '未知',
         apiKey: ''
       },
-      model: savedTask.model || '未知'
+      model: savedTask.model || '未知',
+      prompt: savedTask.prompt || restoredSession.testPrompt || 'Hello'
     };
     const rowState = createMultiSiteResultRow(task);
     if (record.state === 'stopped' || !record.result) setMultiSiteRowStopped(rowState);
@@ -922,6 +932,7 @@ async function testSingleResultRow(rowState) {
   if (multiSiteRunning || singleRowTestRunning || !rowState.task.site.apiKey) return;
 
   const { task, singleTestButton } = rowState;
+  task.prompt = getTestPrompt();
   const controller = new AbortController();
   singleRowTestRunning = true;
   rowState.singleRunning = true;
@@ -944,7 +955,8 @@ async function testSingleResultRow(rowState) {
     const result = await multiSitePostJson('/api/test-model', {
       endpoint: task.site.endpoint,
       apiKey: task.site.apiKey,
-      model: task.model
+      model: task.model,
+      prompt: task.prompt
     }, controller.signal);
     renderMultiSiteResultRow(rowState, result);
     resultRecords.set(task.id, createResultRecord(task, 'complete', result));
@@ -982,7 +994,9 @@ async function startMultiSiteTest() {
   const models = [...selectedSiteModels];
   if (!sites.length || !models.length || multiSiteRunning || singleRowTestRunning) return;
 
-  const tasks = SiteManager.buildSiteModelTasks(sites, models);
+  const prompt = getTestPrompt();
+  const tasks = SiteManager.buildSiteModelTasks(sites, models)
+    .map((task) => ({ ...task, prompt }));
   multiSiteController = new AbortController();
   batchStartedAt = new Date().toISOString();
   updateBatchStartedAt();
@@ -1003,7 +1017,8 @@ async function startMultiSiteTest() {
     return multiSitePostJson('/api/test-model', {
       endpoint: task.site.endpoint,
       apiKey: task.site.apiKey,
-      model: task.model
+      model: task.model,
+      prompt: task.prompt
     }, multiSiteController.signal);
   }, {
     concurrency: MULTI_SITE_CONCURRENCY,
@@ -1128,6 +1143,8 @@ multiSiteElements.toggleEndpoints.addEventListener('click', () => setEndpointVis
 multiSiteElements.multiSiteModelSearch.addEventListener('input', () => {
   renderAggregatedModels(getFilteredAggregatedModels());
 });
+multiSiteElements.multiSiteTestPrompt.value = restoredSession.testPrompt;
+multiSiteElements.multiSiteTestPrompt.addEventListener('input', saveTestSession);
 multiSiteElements.selectAllSiteModels.addEventListener('click', () => {
   selectedSiteModels = new Set(aggregatedSiteModels);
   renderAggregatedModels(getFilteredAggregatedModels());
