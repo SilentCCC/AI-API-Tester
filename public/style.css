@@ -106,14 +106,19 @@ input, select, textarea {
   padding: 0 13px;
 }
 
-.testing-layout { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 18px; align-items: start; }
-.mode-sidebar { position: sticky; top: 20px; display: flex; padding: 14px; flex-direction: column; gap: 6px; border: 1px solid var(--border); border-radius: 14px; background: rgba(19, 23, 32, 0.94); box-shadow: 0 20px 70px rgba(0, 0, 0, 0.14); }
+.testing-layout { position: relative; display: block; }
+.mode-sidebar { position: absolute; top: 0; right: calc(100% + 10px); display: flex; width: 258px; padding: 14px; flex-direction: column; gap: 6px; border: 1px solid var(--border); border-radius: 14px; background: rgba(19, 23, 32, 0.94); box-shadow: 0 20px 70px rgba(0, 0, 0, 0.14); }
 .mode-sidebar-label { margin: 2px 8px 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .mode-nav-button { min-height: 42px; padding: 0 12px; border: 1px solid transparent; border-radius: 9px; outline: none; color: var(--muted); background: transparent; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; }
 .mode-nav-button:hover, .mode-nav-button:focus-visible { border-color: var(--border); color: var(--text); background: var(--surface-soft); }
 .mode-nav-button.is-active { border-color: rgba(105, 228, 181, 0.35); color: var(--accent); background: var(--accent-soft); }
 .test-mode-content { min-width: 0; }
 .test-mode-view[hidden] { display: none; }
+
+@media (min-width: 761px) and (max-width: 2139px) {
+  .testing-layout { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 18px; align-items: start; }
+  .mode-sidebar { position: sticky; top: 20px; width: auto; }
+}
 
 textarea { min-height: 82px; padding: 11px 13px; resize: vertical; line-height: 1.55; }
 
@@ -301,8 +306,8 @@ pre { min-height: 120px; max-height: 360px; margin: 0; overflow: auto; padding: 
 
 @media (max-width: 760px) {
   .app-shell { width: calc(100% - 32px); padding-top: 34px; }
-  .testing-layout { grid-template-columns: 1fr; }
-  .mode-sidebar { position: static; flex-direction: row; align-items: center; overflow-x: auto; }
+  .testing-layout { display: grid; grid-template-columns: 1fr; }
+  .mode-sidebar { position: static; width: auto; flex-direction: row; align-items: center; overflow-x: auto; }
   .mode-sidebar-label { flex: 0 0 auto; margin: 0 6px 0 2px; }
   .mode-nav-button { flex: 0 0 auto; }
   .hero { align-items: flex-start; flex-wrap: wrap; }
