@@ -113,10 +113,6 @@
             <span>搜索汇总模型</span>
             <input id="multi-site-model-search" type="search" placeholder="输入名称筛选" disabled>
           </label>
-          <label class="field test-prompt-field">
-            <span>测试内容</span>
-            <textarea id="multi-site-test-prompt" rows="3" placeholder="输入发送给模型的内容">Hello</textarea>
-          </label>
           <div id="multi-site-model-list" class="multi-model-list" aria-label="多站点模型选择列表">
             <div class="list-empty">请选择站点并获取模型。</div>
           </div>
@@ -138,6 +134,22 @@
             </span>
             <span id="multi-site-progress" class="batch-progress" role="status">等待测试</span>
           </div>
+        </div>
+      </section>
+
+      <section class="panel test-prompt-panel" aria-labelledby="multi-site-prompt-title">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">测试内容</p>
+            <h2 id="multi-site-prompt-title">自定义发送内容</h2>
+          </div>
+          <span class="muted">将发送给当前选中的模型</span>
+        </div>
+        <div class="test-prompt-panel-body">
+          <label class="field test-prompt-field">
+            <span>测试内容</span>
+            <textarea id="multi-site-test-prompt" rows="3" placeholder="输入发送给模型的内容">Hello</textarea>
+          </label>
         </div>
       </section>
 
@@ -217,10 +229,6 @@
                     <button id="clear-independent-models" class="button button-secondary button-small" type="button" disabled>清空选择</button>
                   </div>
                 </div>
-                <label class="field test-prompt-field">
-                  <span>测试内容</span>
-                  <textarea id="independent-test-prompt" rows="3" placeholder="输入发送给模型的内容">Hello</textarea>
-                </label>
                 <div id="independent-model-list" class="independent-model-list" aria-label="独立测试模型选择列表">
                   <div class="list-empty">请先选择站点并获取模型。</div>
                 </div>
@@ -229,6 +237,22 @@
                   <button id="stop-independent-test" class="button button-danger" type="button" disabled>停止测试</button>
                   <span id="independent-progress" class="batch-progress" role="status">等待测试</span>
                 </div>
+              </div>
+            </section>
+
+            <section class="panel test-prompt-panel" aria-labelledby="independent-prompt-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="section-label">测试内容</p>
+                  <h2 id="independent-prompt-title">自定义发送内容</h2>
+                </div>
+                <span class="muted">将发送给当前选中的模型</span>
+              </div>
+              <div class="test-prompt-panel-body">
+                <label class="field test-prompt-field">
+                  <span>测试内容</span>
+                  <textarea id="independent-test-prompt" rows="3" placeholder="输入发送给模型的内容">Hello</textarea>
+                </label>
               </div>
             </section>
 
