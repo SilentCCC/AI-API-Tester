@@ -550,8 +550,8 @@ function deleteSite(siteId) {
 function updateMultiSiteModelControls() {
   const selectedModelCount = selectedSiteModels.size;
   multiSiteElements.multiSiteModelCount.textContent = selectedModelCount;
-  multiSiteElements.selectAllSiteModels.disabled = aggregatedSiteModels.length === 0 || multiSiteRunning || independentRunning;
-  multiSiteElements.clearSiteModels.disabled = selectedModelCount === 0 || multiSiteRunning || independentRunning;
+  multiSiteElements.selectAllSiteModels.disabled = aggregatedSiteModels.length === 0 || multiSiteRunning || independentRunning || singleRowTestRunning;
+  multiSiteElements.clearSiteModels.disabled = selectedModelCount === 0 || multiSiteRunning || independentRunning || singleRowTestRunning;
   multiSiteElements.startMultiSiteTest.disabled = selectedSiteIds.size === 0
     || selectedModelCount === 0
     || multiSiteRunning
@@ -722,7 +722,7 @@ function updateIndependentControls() {
     const site = findSummarySite(summary);
     return total + (site ? (independentSelections.get(site.id)?.size || 0) : 0);
   }, 0);
-  const locked = multiSiteRunning || independentRunning || siteModelsLoading;
+  const locked = multiSiteRunning || independentRunning || singleRowTestRunning || siteModelsLoading;
   multiSiteElements.independentModelCount.textContent = selectedCount;
   multiSiteElements.loadIndependentSiteModels.disabled = selectedSiteIds.size === 0 || locked;
   multiSiteElements.selectAllIndependentModels.disabled = summaries.length === 0 || locked;
@@ -803,7 +803,12 @@ function normalizeMultiSiteError(error, task) {
   };
 }
 
-function createMultiSiteResultRow(task, targetElements = multiSiteElements, includeAction = true) {
+function createMultiSiteResultRow(
+  task,
+  targetElements = multiSiteElements,
+  includeAction = true,
+  singleTestHandler = testSingleResultRow
+) {
   const row = document.createElement('tr');
   const cells = {};
   if (includeAction) cells.action = document.createElement('td');
@@ -826,7 +831,7 @@ function createMultiSiteResultRow(task, targetElements = multiSiteElements, incl
     singleTestButton.type = 'button';
     singleTestButton.textContent = '单独测试';
     singleTestButton.dataset.available = String(Boolean(task.site.apiKey));
-    singleTestButton.disabled = multiSiteRunning || !task.site.apiKey;
+    singleTestButton.disabled = multiSiteRunning || independentRunning || !task.site.apiKey;
     if (!task.site.apiKey) singleTestButton.title = '原站点已删除或配置不可用';
     cells.action.append(singleTestButton);
   }
@@ -845,7 +850,7 @@ function createMultiSiteResultRow(task, targetElements = multiSiteElements, incl
   row.append(...Object.values(cells));
   targetElements.multiSiteResultBody.append(row);
   const rowState = { row, cells, task, singleTestButton, singleRunning: false };
-  singleTestButton?.addEventListener('click', () => testSingleResultRow(rowState));
+  singleTestButton?.addEventListener('click', () => singleTestHandler(rowState));
   return rowState;
 }
 
@@ -1066,14 +1071,14 @@ function restoreIndependentResultRecords() {
       model: savedTask.model || '未知',
       prompt: savedTask.prompt || restoredSession.testPrompt || 'Hello'
     };
-    const rowState = createMultiSiteResultRow(task, getIndependentResultTarget(), false);
+    const rowState = createMultiSiteResultRow(task, getIndependentResultTarget(), true, testIndependentResultRow);
     if (record.state === 'stopped' || !record.result) setMultiSiteRowStopped(rowState);
     else renderMultiSiteResultRow(rowState, record.result);
   }
 }
 
 function updateSingleTestButtons() {
-  multiSiteElements.multiSiteResultBody.querySelectorAll('.single-row-test-button').forEach((button) => {
+  document.querySelectorAll('.single-row-test-button').forEach((button) => {
     button.disabled = multiSiteRunning || independentRunning || singleRowTestRunning || button.dataset.available !== 'true';
   });
 }
@@ -1126,6 +1131,60 @@ async function testSingleResultRow(rowState) {
     updateMultiSiteModelControls();
     updateSingleTestButtons();
     multiSiteElements.multiSiteProgress.textContent = `单独测试完成：${task.site.name} × ${task.model}`;
+    saveTestSession();
+  }
+}
+
+async function testIndependentResultRow(rowState) {
+  if (multiSiteRunning || independentRunning || singleRowTestRunning || !rowState.task.site.apiKey) return;
+
+  const { task, singleTestButton } = rowState;
+  task.prompt = multiSiteElements.independentTestPrompt.value.trim()
+    ? multiSiteElements.independentTestPrompt.value
+    : 'Hello';
+  const controller = new AbortController();
+  singleRowTestRunning = true;
+  rowState.singleRunning = true;
+  singleTestButton.dataset.running = 'true';
+  singleTestButton.textContent = '测试中...';
+  updateMultiSiteModelControls();
+  updateSingleTestButtons();
+  setMultiSiteRowRunning(rowState);
+  rowState.cells.consistency.textContent = '检测中';
+  rowState.cells.returned.textContent = '—';
+  rowState.cells.time.textContent = '—';
+  rowState.cells.http.textContent = '—';
+  rowState.cells.content.textContent = '正在重新测试';
+  rowState.cells.error.textContent = '—';
+  multiSiteElements.independentResultBadge.textContent = '单独测试中';
+  multiSiteElements.independentResultBadge.className = 'badge badge-pending';
+  multiSiteElements.independentProgress.textContent = `正在单独测试：${task.site.name} × ${task.model}`;
+
+  try {
+    const result = await multiSitePostJson('/api/test-model', {
+      endpoint: task.site.endpoint,
+      apiKey: task.site.apiKey,
+      model: task.model,
+      prompt: task.prompt
+    }, controller.signal);
+    renderMultiSiteResultRow(rowState, result);
+    independentResultRecords.set(task.id, createResultRecord(task, 'complete', result));
+    multiSiteElements.independentResultBadge.textContent = result.success ? '单独测试完成' : '单独测试失败';
+    multiSiteElements.independentResultBadge.className = `badge ${result.success ? 'badge-success' : 'badge-error'}`;
+  } catch (error) {
+    const result = normalizeMultiSiteError(error, task);
+    renderMultiSiteResultRow(rowState, result);
+    independentResultRecords.set(task.id, createResultRecord(task, 'complete', result));
+    multiSiteElements.independentResultBadge.textContent = '单独测试失败';
+    multiSiteElements.independentResultBadge.className = 'badge badge-error';
+  } finally {
+    singleRowTestRunning = false;
+    rowState.singleRunning = false;
+    delete singleTestButton.dataset.running;
+    singleTestButton.textContent = '单独测试';
+    updateMultiSiteModelControls();
+    updateSingleTestButtons();
+    multiSiteElements.independentProgress.textContent = `单独测试完成：${task.site.name} × ${task.model}`;
     saveTestSession();
   }
 }
@@ -1238,10 +1297,11 @@ function setIndependentRunning(running) {
   renderIndependentModels();
   updateSiteControls();
   updateMultiSiteModelControls();
+  updateSingleTestButtons();
 }
 
 async function startIndependentTest() {
-  if (multiSiteRunning || independentRunning || siteModelsLoading) return;
+  if (multiSiteRunning || independentRunning || singleRowTestRunning || siteModelsLoading) return;
   const prompt = multiSiteElements.independentTestPrompt.value.trim()
     ? multiSiteElements.independentTestPrompt.value
     : 'Hello';
@@ -1261,7 +1321,7 @@ async function startIndependentTest() {
   saveTestSession();
   const rows = new Map(tasks.map((task) => [
     task.id,
-    createMultiSiteResultRow(task, getIndependentResultTarget(), false)
+    createMultiSiteResultRow(task, getIndependentResultTarget(), true, testIndependentResultRow)
   ]));
   let started = 0;
   let completed = 0;

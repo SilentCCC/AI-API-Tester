@@ -254,16 +254,18 @@ pre { min-height: 120px; max-height: 360px; margin: 0; overflow: auto; padding: 
 .multi-site-result-table th:nth-child(9) { width: 130px; }
 .multi-site-result-table th:nth-child(10) { width: 100px; }
 .multi-site-result-table th:nth-child(11) { width: 160px; }
-.independent-mode .multi-site-result-table { min-width: 1270px; }
-.independent-mode .multi-site-result-table th:nth-child(1) { width: 105px; }
-.independent-mode .multi-site-result-table th:nth-child(2) { width: 215px; }
-.independent-mode .multi-site-result-table th:nth-child(3), .independent-mode .multi-site-result-table th:nth-child(4) { width: 130px; }
-.independent-mode .multi-site-result-table th:nth-child(5) { width: 140px; }
-.independent-mode .multi-site-result-table th:nth-child(6) { width: 70px; }
-.independent-mode .multi-site-result-table th:nth-child(7) { width: 90px; }
-.independent-mode .multi-site-result-table th:nth-child(8) { width: 130px; }
-.independent-mode .multi-site-result-table th:nth-child(9) { width: 100px; }
-.independent-mode .multi-site-result-table th:nth-child(10) { width: 160px; }
+.independent-mode .multi-site-result-table { min-width: 1360px; }
+.independent-mode .multi-site-result-table th:nth-child(1) { width: 88px; }
+.independent-mode .multi-site-result-table th:nth-child(2) { width: 105px; }
+.independent-mode .multi-site-result-table th:nth-child(3) { width: 215px; }
+.independent-mode .multi-site-result-table th:nth-child(4),
+.independent-mode .multi-site-result-table th:nth-child(5) { width: 130px; }
+.independent-mode .multi-site-result-table th:nth-child(6) { width: 140px; }
+.independent-mode .multi-site-result-table th:nth-child(7) { width: 70px; }
+.independent-mode .multi-site-result-table th:nth-child(8) { width: 90px; }
+.independent-mode .multi-site-result-table th:nth-child(9) { width: 130px; }
+.independent-mode .multi-site-result-table th:nth-child(10) { width: 100px; }
+.independent-mode .multi-site-result-table th:nth-child(11) { width: 160px; }
 .endpoint-header { display: flex; align-items: center; justify-content: flex-start; gap: 20px; }
 .endpoint-visibility { display: grid; flex: 0 0 28px; width: 28px; height: 28px; padding: 0; place-items: center; border: 1px solid transparent; border-radius: 7px; outline: none; color: var(--muted); background: transparent; cursor: pointer; }
 .endpoint-visibility:hover, .endpoint-visibility:focus-visible { border-color: var(--border); color: var(--accent); background: rgba(105, 228, 181, 0.08); }
