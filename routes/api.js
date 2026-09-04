@@ -3,6 +3,7 @@ const { detectModelConsistency } = require('../utils/modelConsistency');
 
 const router = express.Router();
 const REQUEST_TIMEOUT_MS = 30000;
+const CONVERSATION_TIMEOUT_MS = 300000;
 
 const ERROR_MESSAGES = {
   400: '请求参数不正确。',
@@ -46,9 +47,9 @@ async function parseResponse(response) {
   }
 }
 
-async function requestUpstream(url, options, externalSignal) {
+async function requestUpstream(url, options, externalSignal, timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const abortFromExternal = () => controller.abort();
 
   if (externalSignal?.aborted) {
@@ -183,7 +184,7 @@ router.post('/test-model', async (request, response) => {
         messages: [{ role: 'user', content: testPrompt }],
         temperature: 0
       })
-    }, clientController.signal);
+    }, clientController.signal, request.body.longWait ? CONVERSATION_TIMEOUT_MS : REQUEST_TIMEOUT_MS);
     const responseTime = Math.round(performance.now() - startedAt);
     const payload = await parseResponse(upstream);
 
@@ -227,6 +228,52 @@ router.post('/test-model', async (request, response) => {
       responseTime,
       message: isTimeout ? '请求超时，上游 API 在 30 秒内没有响应。' : `无法连接 API：${error.message}`
     });
+  } finally {
+    response.removeListener('close', abortOnDisconnect);
+  }
+});
+
+router.post('/conversation', async (request, response) => {
+  const credentials = validateCredentials(request, response);
+  if (!credentials) return;
+
+  const requestedModel = String(request.body.model || '').trim();
+  const messages = Array.isArray(request.body.messages)
+    ? request.body.messages
+      .filter((message) => message && ['user', 'assistant', 'system'].includes(message.role) && typeof message.content === 'string')
+      .map((message) => ({ role: message.role, content: message.content }))
+    : [];
+  if (!requestedModel) {
+    response.status(400).json({ success: false, message: '请选择一个模型。' });
+    return;
+  }
+  if (!messages.length || !messages.some((message) => message.role === 'user' && message.content.trim())) {
+    response.status(400).json({ success: false, message: '请输入对话内容。' });
+    return;
+  }
+
+  const startedAt = performance.now();
+  const clientController = new AbortController();
+  const abortOnDisconnect = () => { if (!response.writableEnded) clientController.abort(); };
+  response.once('close', abortOnDisconnect);
+  try {
+    const upstream = await requestUpstream(`${credentials.endpoint}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${credentials.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: requestedModel, messages, temperature: 0 })
+    }, clientController.signal, CONVERSATION_TIMEOUT_MS);
+    const responseTime = Math.round(performance.now() - startedAt);
+    const payload = await parseResponse(upstream);
+    if (!upstream.ok) {
+      response.status(upstream.status).json({ success: false, requestedModel, returnedModel: payload?.model || null, httpStatus: upstream.status, responseTime, message: getErrorMessage(upstream.status, payload) });
+      return;
+    }
+    response.json({ success: true, requestedModel, returnedModel: typeof payload?.model === 'string' ? payload.model : null, httpStatus: upstream.status, responseTime, content: extractContent(payload), rawResponse: payload });
+  } catch (error) {
+    if (clientController.signal.aborted && response.destroyed) return;
+    const responseTime = Math.round(performance.now() - startedAt);
+    const isTimeout = error.name === 'AbortError';
+    response.status(isTimeout ? 504 : 502).json({ success: false, requestedModel, returnedModel: null, httpStatus: isTimeout ? 504 : 502, responseTime, message: isTimeout ? '对话请求超时，上游 API 在 5 分钟内没有响应。' : `无法连接 API：${error.message}` });
   } finally {
     response.removeListener('close', abortOnDisconnect);
   }

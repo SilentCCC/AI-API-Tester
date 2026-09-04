@@ -83,6 +83,8 @@
           <p class="mode-sidebar-label">测试模式</p>
           <button id="mode-combination" class="mode-nav-button is-active" type="button" aria-pressed="true">组合测试</button>
           <button id="mode-independent" class="mode-nav-button" type="button" aria-pressed="false">独立测试</button>
+          <button id="mode-comparison" class="mode-nav-button" type="button" aria-pressed="false">多模型对比</button>
+          <button id="mode-conversation" class="mode-nav-button" type="button" aria-pressed="false">对话测试</button>
         </aside>
 
         <div class="test-mode-content">
@@ -272,7 +274,7 @@
                       <tr>
                         <th>操作</th>
                         <th>站点名称</th>
-                        <th>端点</th>
+                        <th><div class="endpoint-header"><span>端点</span><button id="toggle-independent-endpoints" class="endpoint-visibility" type="button" aria-label="隐藏所有端点" aria-pressed="false" title="隐藏所有端点"><svg class="eye-icon eye-icon-show" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.2 12s3.5-6 9.8-6 9.8 6 9.8 6-3.5 6-9.8 6-9.8-6-9.8-6Z"></path><circle cx="12" cy="12" r="2.8"></circle></svg><svg class="eye-icon eye-icon-hide" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M3 3l18 18"></path><path d="M10.6 6.1A9.9 9.9 0 0 1 12 6c6.3 0 9.8 6 9.8 6a15.7 15.7 0 0 1-3.1 3.7M6.2 6.2C3.6 8 2.2 12 2.2 12s3.5 6 9.8 6c1 0 2-.2 2.8-.5M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></button></div></th>
                         <th>请求模型</th>
                         <th>返回模型</th>
                         <th>一致性</th>
@@ -286,6 +288,84 @@
                     <tbody id="independent-result-body"></tbody>
                   </table>
                 </div>
+              </div>
+            </section>
+          </div>
+
+          <div id="conversation-mode" class="test-mode-view conversation-mode" hidden>
+            <section class="panel" aria-labelledby="conversation-test-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="section-label">对话测试</p>
+                  <h2 id="conversation-test-title">统一对话测试</h2>
+                </div>
+                <span class="muted">可选择任意站点和模型，支持连续多轮对话</span>
+              </div>
+              <div class="conversation-workspace">
+                <div class="conversation-selectors">
+                  <label class="field"><span>API 站点</span><select id="conversation-site" disabled><option value="">请先保存 API 站点</option></select></label>
+                  <label class="field"><span>模型</span><select id="conversation-model" disabled><option value="">请先选择站点</option></select></label>
+                  <button id="conversation-refresh-models" class="button button-secondary" type="button" disabled>获取模型</button>
+                </div>
+                <div id="conversation-status" class="conversation-status" role="status">请选择站点和模型开始对话。</div>
+                <div id="conversation-messages" class="conversation-messages" aria-live="polite"><div class="list-empty">暂无消息</div></div>
+                <label class="field conversation-input-field"><span>发送消息</span><textarea id="conversation-input" rows="4" placeholder="输入消息，按 Ctrl+Enter 发送" disabled></textarea></label>
+                <div class="batch-actions conversation-actions">
+                  <button id="conversation-send" class="button button-primary" type="button" disabled>发送</button>
+                  <button id="conversation-stop" class="button button-danger" type="button" disabled>停止等待</button>
+                  <button id="conversation-clear" class="button button-secondary" type="button" disabled>清空对话</button>
+                  <span class="muted">模型响应最长等待 5 分钟</span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div id="comparison-mode" class="test-mode-view comparison-mode" hidden>
+            <section class="panel" aria-labelledby="comparison-test-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="section-label">多模型对比</p>
+                  <h2 id="comparison-test-title">跨站点模型横向测试</h2>
+                </div>
+                <span class="muted">每个站点选择一个模型，同时发送相同内容</span>
+              </div>
+              <div class="comparison-workspace">
+                <div class="mode-heading batch-toolbar">
+                  <div>
+                    <h3>站点与模型</h3>
+                    <p>例如：站点 1 × 模型 A、站点 2 × 模型 B。</p>
+                  </div>
+                  <div class="selection-actions">
+                    <button id="load-comparison-models" class="button button-primary" type="button" disabled>获取全部站点模型</button>
+                    <button id="clear-comparison-selections" class="button button-secondary button-small" type="button" disabled>清空选择</button>
+                  </div>
+                </div>
+                <div id="comparison-site-model-list" class="comparison-site-model-list" aria-label="多模型对比站点模型选择列表">
+                  <div class="list-empty">请先保存 API 站点。</div>
+                </div>
+                <div id="comparison-model-status" class="conversation-status" role="status">请选择模型后开始对比。</div>
+                <label class="field test-prompt-field comparison-prompt-field">
+                  <span>测试内容</span>
+                  <textarea id="comparison-test-prompt" rows="3" placeholder="输入发送给所有模型的内容">Hello</textarea>
+                </label>
+                <div class="batch-actions">
+                  <button id="start-comparison-test" class="button button-primary" type="button" disabled>开始多模型对比</button>
+                  <button id="stop-comparison-test" class="button button-danger" type="button" disabled>停止测试</button>
+                  <span id="comparison-progress" class="batch-progress" role="status">等待测试</span>
+                </div>
+              </div>
+            </section>
+            <section class="panel result-panel" aria-labelledby="comparison-result-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="section-label">对比结果</p>
+                  <h2 id="comparison-result-title">多模型响应记录</h2>
+                </div>
+                <span id="comparison-result-badge" class="badge badge-pending">等待测试</span>
+              </div>
+              <div id="comparison-result-empty" class="empty-state">选择多个站点模型后点击“开始多模型对比”。</div>
+              <div id="comparison-result-content" class="batch-result-content" hidden>
+                <div id="comparison-result-body" class="comparison-result-grid" aria-live="polite"></div>
               </div>
             </section>
           </div>

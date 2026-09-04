@@ -43,8 +43,33 @@ const multiSiteElements = {
   multiSiteResultBody: document.querySelector('#multi-site-result-body'),
   modeCombination: document.querySelector('#mode-combination'),
   modeIndependent: document.querySelector('#mode-independent'),
+  modeComparison: document.querySelector('#mode-comparison'),
+  modeConversation: document.querySelector('#mode-conversation'),
   combinationMode: document.querySelector('#combination-mode'),
   independentMode: document.querySelector('#independent-mode'),
+  comparisonMode: document.querySelector('#comparison-mode'),
+  conversationMode: document.querySelector('#conversation-mode'),
+  conversationSite: document.querySelector('#conversation-site'),
+  conversationModel: document.querySelector('#conversation-model'),
+  conversationRefreshModels: document.querySelector('#conversation-refresh-models'),
+  conversationStatus: document.querySelector('#conversation-status'),
+  conversationMessages: document.querySelector('#conversation-messages'),
+  conversationInput: document.querySelector('#conversation-input'),
+  conversationSend: document.querySelector('#conversation-send'),
+  conversationStop: document.querySelector('#conversation-stop'),
+  conversationClear: document.querySelector('#conversation-clear'),
+  loadComparisonModels: document.querySelector('#load-comparison-models'),
+  clearComparisonSelections: document.querySelector('#clear-comparison-selections'),
+  comparisonSiteModelList: document.querySelector('#comparison-site-model-list'),
+  comparisonModelStatus: document.querySelector('#comparison-model-status'),
+  comparisonTestPrompt: document.querySelector('#comparison-test-prompt'),
+  startComparisonTest: document.querySelector('#start-comparison-test'),
+  stopComparisonTest: document.querySelector('#stop-comparison-test'),
+  comparisonProgress: document.querySelector('#comparison-progress'),
+  comparisonResultBadge: document.querySelector('#comparison-result-badge'),
+  comparisonResultEmpty: document.querySelector('#comparison-result-empty'),
+  comparisonResultContent: document.querySelector('#comparison-result-content'),
+  comparisonResultBody: document.querySelector('#comparison-result-body'),
   loadIndependentSiteModels: document.querySelector('#load-independent-site-models'),
   selectAllIndependentModels: document.querySelector('#select-all-independent-models'),
   clearIndependentModels: document.querySelector('#clear-independent-models'),
@@ -60,7 +85,8 @@ const multiSiteElements = {
   independentResultBody: document.querySelector('#independent-result-body'),
   toggleEndpoints: document.querySelector('#toggle-endpoints'),
   endpointShowIcon: document.querySelector('#toggle-endpoints .eye-icon-show'),
-  endpointHideIcon: document.querySelector('#toggle-endpoints .eye-icon-hide')
+  endpointHideIcon: document.querySelector('#toggle-endpoints .eye-icon-hide'),
+  toggleIndependentEndpoints: document.querySelector('#toggle-independent-endpoints')
 };
 
 const MULTI_SITE_CONCURRENCY = 3;
@@ -79,6 +105,16 @@ let multiSiteController = null;
 let multiSiteRunning = false;
 let independentController = null;
 let independentRunning = false;
+let conversationRunning = false;
+let conversationController = null;
+let conversationModels = [];
+let conversationSiteId = restoredSession.conversationSiteId || '';
+let conversationModel = restoredSession.conversationModel || '';
+let conversationMessages = Array.isArray(restoredSession.conversationMessages) ? restoredSession.conversationMessages : [];
+let comparisonModelsBySite = new Map();
+let comparisonSelections = new Map();
+let comparisonRunning = false;
+let comparisonController = null;
 let singleRowTestRunning = false;
 let siteModelsLoading = false;
 let httpTooltipHideTimer = null;
@@ -90,6 +126,244 @@ const endpointCellValues = new WeakMap();
 function getTestPrompt() {
   const value = multiSiteElements.multiSiteTestPrompt.value;
   return value.trim() ? value : 'Hello';
+}
+
+function getConversationSite() {
+  return apiSites.find((site) => site.id === conversationSiteId) || null;
+}
+
+function setConversationStatus(message, type = '') {
+  multiSiteElements.conversationStatus.textContent = message;
+  multiSiteElements.conversationStatus.className = `conversation-status${type ? ` is-${type}` : ''}`;
+}
+
+function renderConversationSites() {
+  const current = conversationSiteId;
+  multiSiteElements.conversationSite.replaceChildren();
+  if (!apiSites.length) {
+    multiSiteElements.conversationSite.add(new Option('请先保存 API 站点', ''));
+    conversationSiteId = '';
+  } else {
+    multiSiteElements.conversationSite.add(new Option('请选择站点', ''));
+    apiSites.forEach((site) => multiSiteElements.conversationSite.add(new Option(site.name, site.id)));
+    conversationSiteId = apiSites.some((site) => site.id === current) ? current : (apiSites[0]?.id || '');
+    multiSiteElements.conversationSite.value = conversationSiteId;
+  }
+  if (conversationSiteId !== current) {
+    conversationModels = [];
+    conversationModel = '';
+    renderConversationModels();
+  }
+  multiSiteElements.conversationSite.disabled = !apiSites.length || conversationRunning;
+  multiSiteElements.conversationRefreshModels.disabled = !getConversationSite() || conversationRunning;
+  updateConversationControls();
+}
+
+function renderConversationModels() {
+  multiSiteElements.conversationModel.replaceChildren();
+  if (!conversationModels.length) {
+    multiSiteElements.conversationModel.add(new Option('请获取模型', ''));
+    conversationModel = '';
+  } else {
+    multiSiteElements.conversationModel.add(new Option('请选择模型', ''));
+    conversationModels.forEach((model) => multiSiteElements.conversationModel.add(new Option(model, model)));
+    conversationModel = conversationModels.includes(conversationModel) ? conversationModel : conversationModels[0];
+    multiSiteElements.conversationModel.value = conversationModel;
+  }
+  updateConversationControls();
+}
+
+function renderConversationMessages() {
+  const container = multiSiteElements.conversationMessages;
+  container.replaceChildren();
+  if (!conversationMessages.length) {
+    const empty = document.createElement('div');
+    empty.className = 'list-empty';
+    empty.textContent = '暂无消息';
+    container.append(empty);
+    return;
+  }
+  conversationMessages.forEach((message) => {
+    const item = document.createElement('div');
+    item.className = `conversation-message conversation-message-${message.role}`;
+    const role = document.createElement('span');
+    role.className = 'conversation-message-role';
+    role.textContent = message.role === 'user' ? '你' : '模型';
+    const content = document.createElement('span');
+    content.textContent = message.content;
+    item.append(role, content);
+    container.append(item);
+  });
+  container.scrollTop = container.scrollHeight;
+}
+
+function updateConversationControls() {
+  const ready = Boolean(getConversationSite() && conversationModel);
+  multiSiteElements.conversationModel.disabled = !conversationModels.length || conversationRunning;
+  multiSiteElements.conversationInput.disabled = !ready || conversationRunning;
+  multiSiteElements.conversationSend.disabled = !ready || conversationRunning || !multiSiteElements.conversationInput.value.trim();
+  multiSiteElements.conversationStop.disabled = !conversationRunning;
+  multiSiteElements.conversationClear.disabled = !conversationMessages.length || conversationRunning;
+}
+
+async function loadConversationModels() {
+  const site = getConversationSite();
+  if (!site || conversationRunning) return;
+  multiSiteElements.conversationRefreshModels.disabled = true;
+  setConversationStatus(`正在获取 ${site.name} 的模型...`, 'running');
+  try {
+    const result = await multiSitePostJson('/api/models', { endpoint: site.endpoint, apiKey: site.apiKey });
+    conversationModels = result.models || [];
+    renderConversationModels();
+    setConversationStatus(`已获取 ${conversationModels.length} 个模型。`);
+  } catch (error) {
+    conversationModels = [];
+    renderConversationModels();
+    setConversationStatus(error.message, 'error');
+  } finally {
+    multiSiteElements.conversationRefreshModels.disabled = !getConversationSite() || conversationRunning;
+    updateConversationControls();
+  }
+}
+
+async function sendConversationMessage() {
+  const site = getConversationSite();
+  const content = multiSiteElements.conversationInput.value.trim();
+  if (!site || !conversationModel || !content || conversationRunning) return;
+  conversationMessages.push({ role: 'user', content });
+  multiSiteElements.conversationInput.value = '';
+  renderConversationMessages();
+  conversationController = new AbortController();
+  conversationRunning = true;
+  updateSiteControls();
+  updateConversationControls();
+  setConversationStatus('模型正在思考，最长等待 5 分钟...', 'running');
+  saveTestSession();
+  try {
+    const result = await multiSitePostJson('/api/conversation', {
+      endpoint: site.endpoint,
+      apiKey: site.apiKey,
+      model: conversationModel,
+      messages: conversationMessages
+    }, conversationController.signal);
+    if (result.content) conversationMessages.push({ role: 'assistant', content: result.content });
+    renderConversationMessages();
+    setConversationStatus(`响应完成 · ${result.responseTime ?? 0} ms`);
+  } catch (error) {
+    if (error.name === 'AbortError') setConversationStatus('已停止等待。', 'error');
+    else setConversationStatus(error.message, 'error');
+  } finally {
+    conversationRunning = false;
+    conversationController = null;
+    updateSiteControls();
+    updateConversationControls();
+    saveTestSession();
+  }
+}
+
+function stopConversation() {
+  if (conversationController && !conversationController.signal.aborted) conversationController.abort();
+}
+
+function setComparisonStatus(message, type = '') {
+  multiSiteElements.comparisonModelStatus.textContent = message;
+  multiSiteElements.comparisonModelStatus.className = `conversation-status${type ? ` is-${type}` : ''}`;
+}
+
+function getComparisonTasks() {
+  return apiSites.filter((site) => selectedSiteIds.has(site.id) && comparisonSelections.get(site.id)).map((site) => ({
+    id: `comparison:${site.id}`,
+    site,
+    model: comparisonSelections.get(site.id),
+    prompt: multiSiteElements.comparisonTestPrompt.value.trim() || 'Hello'
+  }));
+}
+
+function updateComparisonControls() {
+  const count = getComparisonTasks().length;
+  const locked = comparisonRunning || multiSiteRunning || independentRunning || conversationRunning || siteModelsLoading;
+  multiSiteElements.loadComparisonModels.disabled = !selectedSiteIds.size || locked;
+  multiSiteElements.clearComparisonSelections.disabled = count === 0 || locked;
+  multiSiteElements.startComparisonTest.disabled = count < 2 || locked;
+  multiSiteElements.stopComparisonTest.disabled = !comparisonRunning;
+}
+
+function renderComparisonModels() {
+  const list = multiSiteElements.comparisonSiteModelList;
+  list.replaceChildren();
+  const sites = apiSites.filter((site) => selectedSiteIds.has(site.id));
+  if (!sites.length) {
+    const empty = document.createElement('div'); empty.className = 'list-empty'; empty.textContent = '请在上方“选择测试站点”中勾选站点。'; list.append(empty); updateComparisonControls(); return;
+  }
+  const fragment = document.createDocumentFragment();
+  sites.forEach((site) => {
+    const row = document.createElement('div'); row.className = 'comparison-site-model-row';
+    const name = document.createElement('strong'); name.textContent = site.name;
+    const select = document.createElement('select');
+    const models = comparisonModelsBySite.get(site.id) || [];
+    select.add(new Option(models.length ? '不参与对比' : '请先获取模型', ''));
+    models.forEach((model) => select.add(new Option(model, model)));
+    select.value = comparisonSelections.get(site.id) || '';
+    select.disabled = comparisonRunning || !models.length;
+    select.addEventListener('change', () => { if (select.value) comparisonSelections.set(site.id, select.value); else comparisonSelections.delete(site.id); updateComparisonControls(); saveTestSession(); });
+    row.append(name, select); fragment.append(row);
+  });
+  list.append(fragment); updateComparisonControls();
+}
+
+async function loadComparisonModels() {
+  const sites = apiSites.filter((site) => selectedSiteIds.has(site.id));
+  if (!sites.length || comparisonRunning) return;
+  setComparisonStatus(`正在获取 ${sites.length} 个站点的模型...`, 'running');
+  multiSiteElements.loadComparisonModels.disabled = true;
+  await BatchRunner.runWithConcurrency(sites, async (site) => multiSitePostJson('/api/models', { endpoint: site.endpoint, apiKey: site.apiKey }), {
+    concurrency: MULTI_SITE_CONCURRENCY,
+    onItemFinish(error, result, site) {
+      if (error) comparisonModelsBySite.set(site.id, []);
+      else comparisonModelsBySite.set(site.id, result.models || []);
+    }
+  });
+  for (const [siteId, model] of comparisonSelections) if (!(comparisonModelsBySite.get(siteId) || []).includes(model)) comparisonSelections.delete(siteId);
+  renderComparisonModels();
+  setComparisonStatus('模型列表已更新，请为至少两个站点选择模型。');
+  updateComparisonControls();
+}
+
+function createComparisonRow(task) {
+  const card = document.createElement('article'); card.className = 'comparison-result-card';
+  const heading = document.createElement('div'); heading.className = 'comparison-result-card-heading';
+  const titleWrap = document.createElement('div'); const site = document.createElement('strong'); site.textContent = task.site.name;
+  const model = document.createElement('div'); model.className = 'comparison-result-card-model'; model.textContent = task.model; titleWrap.append(site, model);
+  const status = document.createElement('span'); status.className = 'comparison-result-card-status pending'; status.textContent = '排队中'; heading.append(titleWrap, status);
+  const meta = document.createElement('div'); meta.className = 'comparison-result-card-meta';
+  const time = document.createElement('div'); time.innerHTML = '<span>响应时间</span><b>—</b>';
+  const http = document.createElement('div'); http.innerHTML = '<span>HTTP</span><b>—</b>'; meta.append(time, http);
+  const content = document.createElement('pre'); content.className = 'comparison-result-card-content'; content.textContent = '等待测试';
+  const error = document.createElement('div'); error.className = 'comparison-result-card-error'; error.hidden = true;
+  card.append(heading, meta, content, error); multiSiteElements.comparisonResultBody.append(card);
+  return { card, status, time: time.querySelector('b'), http: http.querySelector('b'), content, error };
+}
+
+async function startComparisonTest() {
+  const tasks = getComparisonTasks();
+  if (tasks.length < 2 || comparisonRunning) return;
+  comparisonController = new AbortController(); comparisonRunning = true; updateSiteControls(); updateComparisonControls();
+  multiSiteElements.comparisonResultEmpty.hidden = true; multiSiteElements.comparisonResultContent.hidden = false; multiSiteElements.comparisonResultBody.replaceChildren();
+  multiSiteElements.comparisonResultBadge.textContent = '测试中'; multiSiteElements.comparisonResultBadge.className = 'badge badge-pending'; multiSiteElements.comparisonProgress.textContent = `正在测试 0/${tasks.length}`;
+  const rows = new Map(tasks.map((task) => [task.id, createComparisonRow(task)])); let completed = 0;
+  await BatchRunner.runWithConcurrency(tasks, (task) => multiSitePostJson('/api/test-model', { endpoint: task.site.endpoint, apiKey: task.site.apiKey, model: task.model, prompt: task.prompt, longWait: true }, comparisonController.signal), {
+    concurrency: tasks.length, signal: comparisonController.signal,
+    onItemStart(task) { const state = rows.get(task.id); state.card.classList.add('is-running'); state.status.className = 'comparison-result-card-status running'; state.status.textContent = '测试中'; },
+    onItemFinish(error, result, task) {
+      const state = rows.get(task.id); if (error?.name === 'AbortError') { state.status.textContent = '已停止'; state.status.className = 'comparison-result-card-status error'; state.card.classList.add('is-error'); return; }
+      const value = error ? normalizeMultiSiteError(error, task) : result; state.status.textContent = value.success ? '可用' : '失败'; state.status.className = `comparison-result-card-status ${value.success ? 'success' : 'error'}`; state.card.classList.add(value.success ? 'is-success' : 'is-error'); state.time.textContent = Number.isFinite(value.responseTime) ? `${value.responseTime} ms` : '未知'; state.http.textContent = value.httpStatus ?? '—'; state.content.textContent = value.content || '无返回内容'; if (!value.success) { state.error.hidden = false; state.error.textContent = value.message || '未知错误'; } completed += 1; multiSiteElements.comparisonProgress.textContent = `正在测试 ${completed}/${tasks.length}`;
+    }
+  });
+  const stopped = comparisonController.signal.aborted; multiSiteElements.comparisonProgress.textContent = stopped ? `测试已停止，完成 ${completed}/${tasks.length}` : `测试完成 ${completed}/${tasks.length}`; multiSiteElements.comparisonResultBadge.textContent = stopped ? '已停止' : '测试完成'; multiSiteElements.comparisonResultBadge.className = `badge ${stopped ? 'badge-warning' : 'badge-success'}`; comparisonRunning = false; comparisonController = null; updateSiteControls(); updateComparisonControls();
+}
+
+function stopComparisonTest() {
+  if (comparisonController && !comparisonController.signal.aborted) comparisonController.abort();
 }
 
 function serializeIndependentSelections() {
@@ -122,6 +396,9 @@ function saveTestSession() {
     progressText: multiSiteElements.multiSiteProgress.textContent,
     badgeText: multiSiteElements.multiSiteResultBadge.textContent,
     badgeClass: multiSiteElements.multiSiteResultBadge.className
+    ,conversationSiteId,
+    conversationModel,
+    conversationMessages
   });
   if (!saved && resultRecords.size) {
     const compactRecords = [...resultRecords.values()].map((record) => ({
@@ -141,6 +418,9 @@ function saveTestSession() {
       progressText: multiSiteElements.multiSiteProgress.textContent,
       badgeText: multiSiteElements.multiSiteResultBadge.textContent,
       badgeClass: multiSiteElements.multiSiteResultBadge.className
+      ,conversationSiteId,
+      conversationModel,
+      conversationMessages
     });
   }
 }
@@ -245,6 +525,14 @@ function setEndpointVisibility(hidden) {
   multiSiteElements.endpointShowIcon.hidden = hidden;
   multiSiteElements.endpointHideIcon.hidden = !hidden;
   multiSiteElements.multiSiteResultBody.querySelectorAll('.endpoint-cell').forEach(renderEndpointCell);
+  multiSiteElements.independentResultBody.querySelectorAll('.endpoint-cell').forEach(renderEndpointCell);
+  if (multiSiteElements.toggleIndependentEndpoints) {
+    multiSiteElements.toggleIndependentEndpoints.setAttribute('aria-label', hidden ? '显示所有端点' : '隐藏所有端点');
+    multiSiteElements.toggleIndependentEndpoints.setAttribute('aria-pressed', String(hidden));
+    multiSiteElements.toggleIndependentEndpoints.title = hidden ? '显示所有端点' : '隐藏所有端点';
+    multiSiteElements.toggleIndependentEndpoints.querySelector('.eye-icon-show').hidden = hidden;
+    multiSiteElements.toggleIndependentEndpoints.querySelector('.eye-icon-hide').hidden = !hidden;
+  }
 }
 
 function closeConfigDialog(confirmed) {
@@ -352,6 +640,7 @@ function invalidateAggregatedModels() {
   multiSiteElements.siteModelLoadSummary.hidden = true;
   renderAggregatedModels([]);
   renderIndependentModels();
+  renderComparisonModels();
   saveTestSession();
 }
 
@@ -359,7 +648,7 @@ function updateSiteControls() {
   const siteCount = apiSites.length;
   const selectedCount = selectedSiteIds.size;
   multiSiteElements.selectedSiteCount.textContent = selectedCount;
-  const siteControlsLocked = multiSiteRunning || independentRunning || siteModelsLoading;
+  const siteControlsLocked = multiSiteRunning || independentRunning || conversationRunning || siteModelsLoading;
   multiSiteElements.selectAllSites.disabled = siteCount === 0 || siteControlsLocked;
   multiSiteElements.clearSites.disabled = selectedCount === 0 || siteControlsLocked;
   multiSiteElements.loadSiteModels.disabled = selectedCount === 0 || siteControlsLocked;
@@ -399,6 +688,8 @@ function renderSites() {
     empty.textContent = '还没有保存 API 站点。';
     multiSiteElements.siteList.append(empty);
     updateSiteControls();
+    renderConversationSites();
+    renderComparisonModels();
     return;
   }
 
@@ -413,10 +704,14 @@ function renderSites() {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = selectedSiteIds.has(site.id);
-    checkbox.disabled = multiSiteRunning || independentRunning || siteModelsLoading;
+    checkbox.disabled = multiSiteRunning || independentRunning || conversationRunning || siteModelsLoading;
     checkbox.addEventListener('change', () => {
       if (checkbox.checked) selectedSiteIds.add(site.id);
-      else selectedSiteIds.delete(site.id);
+      else {
+        selectedSiteIds.delete(site.id);
+        comparisonSelections.delete(site.id);
+        comparisonModelsBySite.delete(site.id);
+      }
       invalidateAggregatedModels();
       updateSiteControls();
       saveTestSession();
@@ -444,8 +739,8 @@ function renderSites() {
     dragHandle.textContent = '⠿';
     dragHandle.title = '拖动调整站点顺序';
     dragHandle.setAttribute('aria-label', `拖动 ${site.name} 调整顺序`);
-    dragHandle.draggable = !(multiSiteRunning || independentRunning || siteModelsLoading);
-    dragHandle.disabled = multiSiteRunning || independentRunning || siteModelsLoading;
+    dragHandle.draggable = !(multiSiteRunning || independentRunning || conversationRunning || siteModelsLoading);
+    dragHandle.disabled = multiSiteRunning || independentRunning || conversationRunning || siteModelsLoading;
     dragHandle.addEventListener('dragstart', (event) => {
       draggedSiteId = site.id;
       clearSiteDragState();
@@ -460,7 +755,7 @@ function renderSites() {
     moveLeftButton.textContent = '←';
     moveLeftButton.title = '向前移动一位';
     moveLeftButton.setAttribute('aria-label', `${site.name} 向前移动一位`);
-    moveLeftButton.disabled = siteIndex === 0 || multiSiteRunning || independentRunning || siteModelsLoading;
+    moveLeftButton.disabled = siteIndex === 0 || multiSiteRunning || independentRunning || conversationRunning || siteModelsLoading;
     moveLeftButton.addEventListener('click', () => moveSiteCard(site.id, -1));
     const moveRightButton = document.createElement('button');
     moveRightButton.className = 'site-order-button';
@@ -468,7 +763,7 @@ function renderSites() {
     moveRightButton.textContent = '→';
     moveRightButton.title = '向后移动一位';
     moveRightButton.setAttribute('aria-label', `${site.name} 向后移动一位`);
-    moveRightButton.disabled = siteIndex === apiSites.length - 1 || multiSiteRunning || independentRunning || siteModelsLoading;
+    moveRightButton.disabled = siteIndex === apiSites.length - 1 || multiSiteRunning || independentRunning || conversationRunning || siteModelsLoading;
     moveRightButton.addEventListener('click', () => moveSiteCard(site.id, 1));
     orderActions.append(dragHandle, moveLeftButton, moveRightButton);
 
@@ -502,13 +797,13 @@ function renderSites() {
     editButton.className = 'button button-secondary button-small';
     editButton.type = 'button';
     editButton.textContent = '编辑';
-    editButton.disabled = multiSiteRunning || independentRunning || siteModelsLoading;
+    editButton.disabled = multiSiteRunning || independentRunning || conversationRunning || siteModelsLoading;
     editButton.addEventListener('click', () => editSite(site));
     const deleteButton = document.createElement('button');
     deleteButton.className = 'button button-danger button-small';
     deleteButton.type = 'button';
     deleteButton.textContent = '删除';
-    deleteButton.disabled = multiSiteRunning || independentRunning || siteModelsLoading;
+    deleteButton.disabled = multiSiteRunning || independentRunning || conversationRunning || siteModelsLoading;
     deleteButton.addEventListener('click', () => deleteSite(site.id));
     actions.append(orderActions, editButton, deleteButton);
 
@@ -517,6 +812,8 @@ function renderSites() {
   }
 
   multiSiteElements.siteList.append(fragment);
+  renderConversationSites();
+  renderComparisonModels();
   updateSiteControls();
 }
 
@@ -550,12 +847,13 @@ function deleteSite(siteId) {
 function updateMultiSiteModelControls() {
   const selectedModelCount = selectedSiteModels.size;
   multiSiteElements.multiSiteModelCount.textContent = selectedModelCount;
-  multiSiteElements.selectAllSiteModels.disabled = aggregatedSiteModels.length === 0 || multiSiteRunning || independentRunning || singleRowTestRunning;
-  multiSiteElements.clearSiteModels.disabled = selectedModelCount === 0 || multiSiteRunning || independentRunning || singleRowTestRunning;
+  multiSiteElements.selectAllSiteModels.disabled = aggregatedSiteModels.length === 0 || multiSiteRunning || independentRunning || conversationRunning || singleRowTestRunning;
+  multiSiteElements.clearSiteModels.disabled = selectedModelCount === 0 || multiSiteRunning || independentRunning || conversationRunning || singleRowTestRunning;
   multiSiteElements.startMultiSiteTest.disabled = selectedSiteIds.size === 0
     || selectedModelCount === 0
     || multiSiteRunning
     || independentRunning
+    || conversationRunning
     || singleRowTestRunning;
 }
 
@@ -598,7 +896,7 @@ function renderAggregatedModels(models) {
 
 async function loadSelectedSiteModels() {
   const sites = getSelectedSites();
-  if (!sites.length || multiSiteRunning || independentRunning) return;
+  if (!sites.length || multiSiteRunning || independentRunning || conversationRunning) return;
 
   siteModelsLoading = true;
   renderSites();
@@ -722,7 +1020,7 @@ function updateIndependentControls() {
     const site = findSummarySite(summary);
     return total + (site ? (independentSelections.get(site.id)?.size || 0) : 0);
   }, 0);
-  const locked = multiSiteRunning || independentRunning || singleRowTestRunning || siteModelsLoading;
+  const locked = multiSiteRunning || independentRunning || conversationRunning || singleRowTestRunning || siteModelsLoading;
   multiSiteElements.independentModelCount.textContent = selectedCount;
   multiSiteElements.loadIndependentSiteModels.disabled = selectedSiteIds.size === 0 || locked;
   multiSiteElements.selectAllIndependentModels.disabled = summaries.length === 0 || locked;
@@ -1202,7 +1500,7 @@ function setMultiSiteRunning(running) {
 async function startMultiSiteTest() {
   const sites = getSelectedSites();
   const models = [...selectedSiteModels];
-  if (!sites.length || !models.length || multiSiteRunning || independentRunning || singleRowTestRunning) return;
+  if (!sites.length || !models.length || multiSiteRunning || independentRunning || conversationRunning || singleRowTestRunning) return;
 
   const prompt = getTestPrompt();
   const tasks = SiteManager.buildSiteModelTasks(sites, models)
@@ -1301,7 +1599,7 @@ function setIndependentRunning(running) {
 }
 
 async function startIndependentTest() {
-  if (multiSiteRunning || independentRunning || singleRowTestRunning || siteModelsLoading) return;
+  if (multiSiteRunning || independentRunning || conversationRunning || singleRowTestRunning || siteModelsLoading) return;
   const prompt = multiSiteElements.independentTestPrompt.value.trim()
     ? multiSiteElements.independentTestPrompt.value
     : 'Hello';
@@ -1433,6 +1731,8 @@ multiSiteElements.selectAllSites.addEventListener('click', () => {
 
 multiSiteElements.clearSites.addEventListener('click', () => {
   selectedSiteIds.clear();
+  comparisonSelections.clear();
+  comparisonModelsBySite.clear();
   invalidateAggregatedModels();
   renderSites();
   saveTestSession();
@@ -1462,7 +1762,43 @@ multiSiteElements.startMultiSiteTest.addEventListener('click', startMultiSiteTes
 multiSiteElements.stopMultiSiteTest.addEventListener('click', stopMultiSiteTest);
 multiSiteElements.startIndependentTest.addEventListener('click', startIndependentTest);
 multiSiteElements.stopIndependentTest.addEventListener('click', stopIndependentTest);
+multiSiteElements.loadComparisonModels.addEventListener('click', loadComparisonModels);
+multiSiteElements.clearComparisonSelections.addEventListener('click', () => { comparisonSelections.clear(); renderComparisonModels(); saveTestSession(); });
+multiSiteElements.startComparisonTest.addEventListener('click', startComparisonTest);
+multiSiteElements.stopComparisonTest.addEventListener('click', stopComparisonTest);
 multiSiteElements.toggleEndpoints.addEventListener('click', () => setEndpointVisibility(!endpointsHidden));
+multiSiteElements.toggleIndependentEndpoints?.addEventListener('click', () => setEndpointVisibility(!endpointsHidden));
+multiSiteElements.conversationSite.addEventListener('change', () => {
+  conversationSiteId = multiSiteElements.conversationSite.value;
+  conversationModels = [];
+  conversationModel = '';
+  renderConversationModels();
+  setConversationStatus('请获取该站点的模型。');
+  loadConversationModels();
+  saveTestSession();
+});
+multiSiteElements.conversationModel.addEventListener('change', () => {
+  conversationModel = multiSiteElements.conversationModel.value;
+  updateConversationControls();
+  saveTestSession();
+});
+multiSiteElements.conversationRefreshModels.addEventListener('click', loadConversationModels);
+multiSiteElements.conversationSend.addEventListener('click', sendConversationMessage);
+multiSiteElements.conversationStop.addEventListener('click', stopConversation);
+multiSiteElements.conversationClear.addEventListener('click', () => {
+  conversationMessages = [];
+  renderConversationMessages();
+  setConversationStatus('对话已清空。');
+  saveTestSession();
+  updateConversationControls();
+});
+multiSiteElements.conversationInput.addEventListener('input', updateConversationControls);
+multiSiteElements.conversationInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    sendConversationMessage();
+  }
+});
 multiSiteElements.multiSiteModelSearch.addEventListener('input', () => {
   renderAggregatedModels(getFilteredAggregatedModels());
 });
@@ -1503,16 +1839,26 @@ multiSiteElements.clearIndependentModels.addEventListener('click', () => {
 
 function setTestMode(mode) {
   const independent = mode === 'independent';
-  multiSiteElements.combinationMode.hidden = independent;
-  multiSiteElements.independentMode.hidden = !independent;
-  multiSiteElements.modeCombination.classList.toggle('is-active', !independent);
+  const conversation = mode === 'conversation';
+  const comparison = mode === 'comparison';
+  multiSiteElements.combinationMode.hidden = independent || conversation || comparison;
+  multiSiteElements.independentMode.hidden = !independent || conversation;
+  multiSiteElements.conversationMode.hidden = !conversation || comparison;
+  multiSiteElements.comparisonMode.hidden = !comparison;
+  multiSiteElements.modeCombination.classList.toggle('is-active', !independent && !conversation && !comparison);
   multiSiteElements.modeIndependent.classList.toggle('is-active', independent);
-  multiSiteElements.modeCombination.setAttribute('aria-pressed', String(!independent));
+  multiSiteElements.modeConversation.classList.toggle('is-active', conversation);
+  multiSiteElements.modeComparison.classList.toggle('is-active', comparison);
+  multiSiteElements.modeCombination.setAttribute('aria-pressed', String(!independent && !conversation && !comparison));
   multiSiteElements.modeIndependent.setAttribute('aria-pressed', String(independent));
+  multiSiteElements.modeConversation.setAttribute('aria-pressed', String(conversation));
+  multiSiteElements.modeComparison.setAttribute('aria-pressed', String(comparison));
 }
 
 multiSiteElements.modeCombination.addEventListener('click', () => setTestMode('combination'));
 multiSiteElements.modeIndependent.addEventListener('click', () => setTestMode('independent'));
+multiSiteElements.modeConversation.addEventListener('click', () => setTestMode('conversation'));
+multiSiteElements.modeComparison.addEventListener('click', () => setTestMode('comparison'));
 
 renderSites();
 multiSiteElements.multiSiteModelSearch.disabled = aggregatedSiteModels.length === 0;
@@ -1521,6 +1867,12 @@ renderSiteModelSummaries();
 renderIndependentModels();
 restoreResultRecords();
 restoreIndependentResultRecords();
+renderConversationSites();
+renderConversationModels();
+renderConversationMessages();
+renderComparisonModels();
+if (conversationSiteId && conversationModels.length === 0) loadConversationModels();
+updateConversationControls();
 updateBatchStartedAt();
 multiSiteElements.multiSiteProgress.textContent = restoredSession.progressText;
 multiSiteElements.multiSiteResultBadge.textContent = restoredSession.badgeText;

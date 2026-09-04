@@ -23,7 +23,7 @@
 
   function normalizeState(value) {
     const state = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-    return {
+    const normalized = {
       selectedSiteIds: stringArray(state.selectedSiteIds),
       aggregatedSiteModels: stringArray(state.aggregatedSiteModels),
       selectedSiteModels: stringArray(state.selectedSiteModels),
@@ -39,6 +39,14 @@
       badgeText: typeof state.badgeText === 'string' ? state.badgeText : EMPTY_STATE.badgeText,
       badgeClass: typeof state.badgeClass === 'string' ? state.badgeClass : EMPTY_STATE.badgeClass
     };
+    if ('conversationSiteId' in state || 'conversationModel' in state || 'conversationMessages' in state) {
+      normalized.conversationSiteId = typeof state.conversationSiteId === 'string' ? state.conversationSiteId : '';
+      normalized.conversationModel = typeof state.conversationModel === 'string' ? state.conversationModel : '';
+      normalized.conversationMessages = Array.isArray(state.conversationMessages)
+        ? state.conversationMessages.filter((message) => message && ['user', 'assistant'].includes(message.role) && typeof message.content === 'string').slice(-100)
+        : [];
+    }
+    return normalized;
   }
 
   function load(storage = globalScope.localStorage) {
