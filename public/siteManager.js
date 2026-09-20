@@ -10,6 +10,42 @@
     return value;
   }
 
+  function parseQuickFillInput(input) {
+    const value = String(input || '').trim();
+    if (!value) throw new Error('请粘贴包含 API Key 和 URL 的内容。');
+
+    const markdownUrlMatch = value.match(/\]\(\s*(https?:\/\/[^)\s]+)\s*\)/i);
+    const urlMatch = markdownUrlMatch || value.match(/https?:\/\/[^\s)]+/i);
+    if (!urlMatch) throw new Error('未识别到 HTTP 或 HTTPS URL。');
+    const rawUrl = markdownUrlMatch ? markdownUrlMatch[1] : urlMatch[0];
+
+    const apiKeyMatch = value
+      .replace(rawUrl, ' ')
+      .match(/sk-[^\s\]})>,，。！？；："'“”‘’]+/i);
+    const apiKey = apiKeyMatch?.[0]?.replace(/[.,;，。！？；：]+$/, '');
+    if (!apiKey) throw new Error('未识别到以 sk- 开头的 API Key。');
+
+    let url;
+    try {
+      url = new URL(rawUrl.replace(/[.,;]+$/, ''));
+    } catch {
+      throw new Error('URL 格式无效。');
+    }
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('URL 仅支持 HTTP 或 HTTPS。');
+    }
+
+    const hostnameParts = url.hostname.split('.').filter(Boolean);
+    const name = hostnameParts.length >= 2
+      ? hostnameParts[hostnameParts.length - 2]
+      : hostnameParts[0];
+    if (!name) throw new Error('无法从 URL 识别站点名称。');
+
+    const basePath = url.pathname.replace(/\/+$/, '');
+    const endpoint = `${url.origin}${basePath && /\/v1$/i.test(basePath) ? basePath : `${basePath}/v1`}`;
+    return { name, endpoint, apiKey };
+  }
+
   function createSite(input, idFactory = () => globalScope.crypto.randomUUID()) {
     const name = String(input.name || '').trim();
     const apiKey = String(input.apiKey || '').trim();
@@ -125,6 +161,7 @@
     mergeImportedSites,
     moveSite,
     normalizeEndpoint,
+    parseQuickFillInput,
     parseImportConfig,
     reorderSite,
     saveSites

@@ -28,6 +28,18 @@
           <span id="service-message" class="muted">正在连接本地服务...</span>
         </div>
 
+        <div class="quick-fill-panel">
+          <label class="field" for="quick-site-input">
+            <span>快速填充</span>
+            <input id="quick-site-input" type="text" placeholder="粘贴 API Key 和 URL，例如：sk-xxx https://api.example.com/" autocomplete="off">
+            <small>识别后只填入下方表单，不会自动保存站点。</small>
+          </label>
+          <div class="quick-fill-actions">
+            <button id="quick-site-fill" class="button button-secondary" type="button">识别并填入</button>
+            <span id="quick-site-message" class="form-message" role="status"></span>
+          </div>
+        </div>
+
         <form id="site-form" class="site-form">
           <input id="editing-site-id" type="hidden">
           <label class="field">

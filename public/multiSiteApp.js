@@ -6,6 +6,9 @@ const multiSiteElements = {
   siteName: document.querySelector('#site-name'),
   siteEndpoint: document.querySelector('#site-endpoint'),
   siteApiKey: document.querySelector('#site-api-key'),
+  quickSiteInput: document.querySelector('#quick-site-input'),
+  quickSiteFill: document.querySelector('#quick-site-fill'),
+  quickSiteMessage: document.querySelector('#quick-site-message'),
   toggleApiKey: document.querySelector('#toggle-api-key'),
   apiKeyShowIcon: document.querySelector('.eye-icon-show'),
   apiKeyHideIcon: document.querySelector('.eye-icon-hide'),
@@ -139,14 +142,15 @@ function setConversationStatus(message, type = '') {
 
 function renderConversationSites() {
   const current = conversationSiteId;
+  const selectedSites = apiSites.filter((site) => selectedSiteIds.has(site.id));
   multiSiteElements.conversationSite.replaceChildren();
-  if (!apiSites.length) {
-    multiSiteElements.conversationSite.add(new Option('请先保存 API 站点', ''));
+  if (!selectedSites.length) {
+    multiSiteElements.conversationSite.add(new Option('请先在上方勾选测试站点', ''));
     conversationSiteId = '';
   } else {
     multiSiteElements.conversationSite.add(new Option('请选择站点', ''));
-    apiSites.forEach((site) => multiSiteElements.conversationSite.add(new Option(site.name, site.id)));
-    conversationSiteId = apiSites.some((site) => site.id === current) ? current : (apiSites[0]?.id || '');
+    selectedSites.forEach((site) => multiSiteElements.conversationSite.add(new Option(site.name, site.id)));
+    conversationSiteId = selectedSites.some((site) => site.id === current) ? current : (selectedSites[0]?.id || '');
     multiSiteElements.conversationSite.value = conversationSiteId;
   }
   if (conversationSiteId !== current) {
@@ -154,7 +158,7 @@ function renderConversationSites() {
     conversationModel = '';
     renderConversationModels();
   }
-  multiSiteElements.conversationSite.disabled = !apiSites.length || conversationRunning;
+  multiSiteElements.conversationSite.disabled = !selectedSites.length || conversationRunning;
   multiSiteElements.conversationRefreshModels.disabled = !getConversationSite() || conversationRunning;
   updateConversationControls();
 }
@@ -499,6 +503,11 @@ function resetSiteForm() {
   setApiKeyVisibility(false);
   multiSiteElements.saveSite.textContent = '保存站点';
   multiSiteElements.cancelSiteEdit.hidden = true;
+}
+
+function setQuickSiteMessage(message, type = '') {
+  multiSiteElements.quickSiteMessage.textContent = message;
+  multiSiteElements.quickSiteMessage.className = `form-message${type ? ` message-${type}` : ''}`;
 }
 
 function setApiKeyVisibility(visible) {
@@ -1720,6 +1729,20 @@ multiSiteElements.cancelSiteEdit.addEventListener('click', () => {
 multiSiteElements.toggleApiKey.addEventListener('click', () => {
   setApiKeyVisibility(multiSiteElements.siteApiKey.type === 'password');
   multiSiteElements.siteApiKey.focus();
+});
+
+multiSiteElements.quickSiteFill.addEventListener('click', () => {
+  try {
+    const parsed = SiteManager.parseQuickFillInput(multiSiteElements.quickSiteInput.value);
+    multiSiteElements.siteName.value = parsed.name;
+    multiSiteElements.siteEndpoint.value = parsed.endpoint;
+    multiSiteElements.siteApiKey.value = parsed.apiKey;
+    setApiKeyVisibility(false);
+    setQuickSiteMessage('已填入站点名称、Endpoint 和 API Key。', 'success');
+    multiSiteElements.siteName.focus();
+  } catch (error) {
+    setQuickSiteMessage(error.message, 'error');
+  }
 });
 
 multiSiteElements.selectAllSites.addEventListener('click', () => {
